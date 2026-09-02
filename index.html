@@ -3,271 +3,842 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OJAS — AI Rooftop Solar Assessment | PM Surya Ghar Scheme</title>
-  <meta name="description" content="OJAS is an AI-powered rooftop solar assessment platform built for India's PM Surya Ghar Muft Bijli Yojana, providing high-precision shading, structural, and grid feasibility analysis.">
+  <title>OJAS — Sovereign Rooftop Solar GIS Platform | PM Surya Ghar Scheme</title>
+  <meta name="description" content="OJAS is an AI-powered sovereign rooftop solar assessment and GIS platform for PM Surya Ghar Muft Bijli Yojana, featuring sub-meter satellite irradiance modeling, geodesic rooftop tracing, and DISCOM feeder telemetry.">
 
-  <!-- Google Fonts: Newsreader (Serif), IBM Plex Sans, IBM Plex Mono -->
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts & Samarkan -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.cdnfonts.com/css/samarkan" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Stylesheet -->
+  <!-- Leaflet GIS Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Turf.js for High-Precision Geodesic Rooftop Area Calculation -->
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+  <!-- Chart.js for Weather & ROI Graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- OJAS Sovereign Stylesheet -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- Navigation Bar -->
-  <nav class="navbar" id="navbar">
-    <div class="nav-container">
-      <a href="index.html" class="brand-logo" title="OJAS Home">
-        <div class="brand-icon">
-          <!-- Inline Blueprint Sun/Grid Icon -->
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
-            <circle cx="12" cy="12" r="5" stroke="#E8A33D" />
-            <path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12" stroke="#E8A33D" />
-          </svg>
-        </div>
-        <div class="brand-title">
-          OJAS
-          <span class="brand-subtitle">SURYA-GHAR · v1.0</span>
-        </div>
-      </a>
+  <!-- National Sovereign Tricolor Indicator Line -->
+  <div class="tricolor-glow"></div>
 
-      <ul class="nav-links">
-        <li><a href="index.html" class="nav-link active">Home</a></li>
-        <li><a href="assessment.html" class="nav-link">Assess a Roof</a></li>
-        <li>
-          <a href="#" id="nav-planner-view" class="nav-link disabled" title="Planner View (Coming Soon)">
-            Planner View
-            <span class="badge-coming-soon">COMING SOON</span>
-          </a>
-        </li>
-      </ul>
+  <!-- Sticky Sovereign Navigation Bar -->
+  <nav id="navbar">
+    <div class="wrap">
+      <!-- Brand Logo -->
+      <div class="logo" onclick="switchTab('assessment')" title="OJAS Solar Platform">
+        <span class="logo-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--solar-gold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+        </span>
+        <span style="font-family: var(--font-samarkan);">OJAS</span>
+        <span class="text-[10px] font-mono tracking-wider text-amber-500/80 border border-amber-500/30 px-1.5 py-0.5 rounded ml-1 hidden sm:inline-block">SURYA-GHAR · v2.0</span>
+      </div>
+
+      <!-- Navigation Tabs (6 Interactive Views) -->
+      <div class="nav-tabs hidden md:flex">
+        <div class="tab-btn active" id="tab-btn-assessment" onclick="switchTab('assessment')">
+          <i class="fa-solid fa-house-laptop"></i> <span data-i18n="nav_assessment">Home &amp; Scan</span>
+        </div>
+        <div class="tab-btn" id="tab-btn-pipeline" onclick="switchTab('pipeline')">
+          <i class="fa-solid fa-diagram-project"></i> <span data-i18n="nav_pipeline">Pipeline</span>
+        </div>
+        <div class="tab-btn" id="tab-btn-ai" onclick="switchTab('ai')">
+          <i class="fa-solid fa-brain"></i> <span data-i18n="nav_ai">Rooftop AI</span>
+        </div>
+        <div class="tab-btn" id="tab-btn-roi" onclick="switchTab('roi')">
+          <i class="fa-solid fa-hand-holding-dollar"></i> <span data-i18n="nav_roi">Subsidy ROI</span>
+        </div>
+        <div class="tab-btn" id="tab-btn-gis" onclick="switchTab('gis')">
+          <i class="fa-solid fa-map-location-dot"></i> <span data-i18n="nav_gis">District GIS</span>
+        </div>
+        <div class="tab-btn" id="tab-btn-vendors" onclick="switchTab('vendors')">
+          <i class="fa-solid fa-store"></i> <span data-i18n="nav_vendors">Empanelled Vendors</span>
+        </div>
+      </div>
+
+      <!-- Language Selector Pill (EN, HI, BN, MR) -->
+      <div class="lang-select-wrapper">
+        <i class="fa-solid fa-globe text-amber-500 absolute right-3 pointer-events-none text-xs"></i>
+        <select id="langSelect" class="lang-select" onchange="changeLanguage(this.value)">
+          <option value="en">English (EN)</option>
+          <option value="hi">हिन्दी (HI)</option>
+          <option value="bn">বাংলা (BN)</option>
+          <option value="mr">मराठी (MR)</option>
+        </select>
+      </div>
     </div>
   </nav>
 
-  <!-- Hero Section: Signature Visual Moment -->
-  <section class="hero-section">
-    <div class="hero-grid-overlay"></div>
+  <!-- Mobile Tab Bar -->
+  <div class="md:hidden flex overflow-x-auto gap-2 p-2 bg-slate-950 border-b border-slate-800 text-xs font-mono">
+    <button class="tab-btn active text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('assessment')">Home &amp; Scan</button>
+    <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('pipeline')">Pipeline</button>
+    <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('ai')">Rooftop AI</button>
+    <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('roi')">Subsidy ROI</button>
+    <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('gis')">District GIS</button>
+    <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('vendors')">Vendors</button>
+  </div>
 
-    <div class="hero-container">
-      <div class="hero-content">
-        <div class="hero-badge">
-          <span>REF: PM-SURYA-GHAR-2026</span>
-          <span>·</span>
-          <span>SYSTEM ONLINE</span>
+  <!-- ========================================================================= -->
+  <!-- PAGE 1: HOME, INPUTS, SATELLITE SCAN, MARKER TRACING & 10-YEAR WEATHER -->
+  <!-- ========================================================================= -->
+  <div id="page-assessment" class="page-view active">
+    <div class="wrap">
+      <!-- Hero Banner -->
+      <div class="relative py-8 mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-slate-800 p-8 shadow-2xl">
+        <div class="tricolor-ambient"></div>
+        <div class="sleek-grid-bg"></div>
+        <div class="relative z-10 max-w-3xl">
+          <div class="eyebrow">
+            <span class="pulse-dot"></span>
+            <span data-i18n="hero_badge">PM Surya Ghar : Sovereign Solar GIS Engine</span>
+          </div>
+          <h1 class="text-3xl md:text-5xl font-normal leading-tight mb-3" style="font-family: var(--font-samarkan);">
+            <span data-i18n="hero_title_1">Solar Intelligence for</span> <span class="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-500" data-i18n="hero_title_2">Every Indian Rooftop</span>
+          </h1>
+          <p class="text-slate-400 text-sm md:text-base mb-6" data-i18n="hero_desc">
+            Enter your exact home address, trace your rooftop with high-precision satellite imagery, estimate complete solar investment with Govt subsidies, and inspect past 10-year solar weather trends.
+          </p>
+        </div>
+      </div>
+
+      <!-- Grid Container: Left Parameter Controls, Right Satellite GIS Map with Rooftop Marker Tracing -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+        
+        <!-- INPUTS & PARAMETERS SECTION -->
+        <div class="lg:col-span-5 card-box">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+            <h2 class="text-xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="input_title">1. Property &amp; Installation Parameters</h2>
+            <span class="text-xs font-mono text-slate-500">PARAM-INPUT</span>
+          </div>
+
+          <form id="solarForm" onsubmit="event.preventDefault(); geocodeAddress();">
+            <div class="space-y-4">
+              <!-- 1. Location / Address with Autocomplete & Geocoding -->
+              <div class="form-group relative">
+                <label class="form-label">
+                  <span data-i18n="label_location">Exact House Address / Landmark</span>
+                  <i class="fa-solid fa-location-crosshairs text-amber-500 cursor-pointer hover:text-amber-400" onclick="useCurrentLocation()" title="Detect GPS Location"></i>
+                </label>
+                <div class="flex gap-2">
+                  <input type="text" id="inputLocation" class="form-input flex-1" value="Park Street, Kolkata, West Bengal" placeholder="Enter house no., street, landmark or city..." onkeydown="handleAddressKeydown(event)" oninput="handleAddressInput(this.value)">
+                  <button type="button" id="btnGeocode" class="btn-ghost py-2 px-3 text-xs flex items-center gap-1.5" onclick="geocodeAddress()">
+                    <i class="fa-solid fa-magnifying-glass" id="searchIcon"></i>
+                    <i class="fa-solid fa-spinner fa-spin hidden" id="searchSpinner"></i>
+                    <span>Locate</span>
+                  </button>
+                </div>
+
+                <!-- Live Address Suggestions Dropdown -->
+                <div id="addressSuggestions" class="address-dropdown hidden"></div>
+                
+                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-1">
+                  <span id="addressStatusText" class="text-amber-400 flex items-center gap-1">
+                    <i class="fa-solid fa-circle-info"></i> Press Enter or click 'Locate' to load rooftop
+                  </span>
+                </div>
+              </div>
+
+              <!-- Quick Presets -->
+              <div class="flex items-center gap-2 flex-wrap text-xs font-mono">
+                <span class="text-slate-500 text-[10px]">PRESETS:</span>
+                <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 text-[11px]" onclick="selectSuggestion(21.1458, 79.0882, 'Nagpur, Maharashtra')">Nagpur</button>
+                <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 text-[11px]" onclick="selectSuggestion(28.6139, 77.2090, 'Connaught Place, New Delhi')">New Delhi</button>
+                <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 text-[11px]" onclick="selectSuggestion(26.9124, 75.7873, 'Jaipur, Rajasthan')">Jaipur</button>
+                <button type="button" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 text-[11px]" onclick="selectSuggestion(12.9716, 77.5946, 'MG Road, Bengaluru')">Bengaluru</button>
+              </div>
+
+              <!-- 2. Area of House & Solar Area -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="form-group">
+                  <label class="form-label" data-i18n="label_house_area">Total House Area (sq ft)</label>
+                  <input type="number" id="inputHouseArea" class="form-input" value="1800" min="200" max="20000" oninput="calculateEstimation()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" data-i18n="label_solar_area">Solar Install Area (sq ft)</label>
+                  <input type="number" id="inputSolarArea" class="form-input text-amber-400 font-bold" value="650" min="100" max="10000" oninput="calculateEstimation()">
+                </div>
+              </div>
+
+              <!-- 3. Width of Roof & Electricity Usage -->
+              <div class="grid grid-cols-2 gap-4">
+                <div class="form-group">
+                  <label class="form-label" data-i18n="label_roof_width">Roof Width (ft)</label>
+                  <input type="number" id="inputRoofWidth" class="form-input" value="25" min="5" max="200" oninput="calculateEstimation()">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" data-i18n="label_electricity">Monthly Usage (kWh / Units)</label>
+                  <input type="number" id="inputElectricity" class="form-input" value="450" min="50" max="5000" oninput="calculateEstimation()">
+                </div>
+              </div>
+
+              <!-- 4. Material of House Structure -->
+              <div class="form-group">
+                <label class="form-label" data-i18n="label_material">House Construction Material</label>
+                <select id="inputMaterial" class="form-select" onchange="calculateEstimation()">
+                  <option value="rcc" data-i18n="mat_rcc">RCC Reinforced Concrete Terrace (Flat)</option>
+                  <option value="tin" data-i18n="mat_tin">Galvanized Tin / Metal Sheet</option>
+                  <option value="tile" data-i18n="mat_tile">Clay / Mangalore Tiles (Sloped)</option>
+                  <option value="asbestos" data-i18n="mat_asbestos">Asbestos / Fiber Sheet Structure</option>
+                  <option value="wood" data-i18n="mat_wood">Wood &amp; Steel Truss Framing</option>
+                </select>
+              </div>
+
+              <button type="button" class="btn-primary w-full mt-2" onclick="triggerGeospatialScan()">
+                <i class="fa-solid fa-satellite"></i>
+                <span data-i18n="btn_run_scan">Run Geospatial Satellite AI Scan</span>
+              </button>
+            </div>
+          </form>
         </div>
 
-        <h1 class="hero-title">
-          Empowering Roofs, <br>
-          <span>Powering Truths</span>
-        </h1>
+        <!-- GEOSPATIAL SATELLITE MAP & ROOFTOP TRACING SECTION -->
+        <div class="lg:col-span-7 card-box flex flex-col justify-between">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span class="font-mono text-xs text-slate-300 font-semibold uppercase" id="scanCoordText">GEO-SAT / LAT: 22.5529° N, LON: 88.3524° E</span>
+            </div>
+            <span class="text-xs font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded" id="scanStatusBadge">GIS ACTIVE</span>
+          </div>
 
-        <p class="hero-desc">
-          AI-driven satellite irradiance modeling, roof structural clearance, and DISCOM grid feasibility analysis engineered specifically for India's PM Surya Ghar Muft Bijli Yojana.
+          <!-- Interactive Leaflet Map Element -->
+          <div class="relative rounded-xl overflow-hidden border border-slate-700">
+            <div id="gisMap"></div>
+            
+            <!-- Reticle Overlay Info -->
+            <div class="absolute bottom-3 right-3 z-[500] bg-slate-900/90 backdrop-blur border border-slate-700 p-2.5 rounded-lg text-xs font-mono space-y-1 shadow-xl">
+              <div class="text-amber-400 flex items-center gap-1.5"><i class="fa-solid fa-draw-polygon"></i> Roof Boundary: <span id="roofDetectBadge">Locked</span></div>
+              <div class="text-emerald-400 flex items-center gap-1.5"><i class="fa-solid fa-sun"></i> Insolation: 94.2% Peak</div>
+              <div class="text-slate-400 text-[10px] mt-1 pt-1 border-t border-slate-800"><i class="fa-solid fa-hand-pointer text-amber-500"></i> Click/drag pin or use Draw Roof below</div>
+            </div>
+          </div>
+
+          <!-- ROOFTOP POLYGON TRACING TOOLBAR -->
+          <div class="draw-toolbar">
+            <div class="draw-btn-group">
+              <button type="button" id="btn-draw-roof" class="draw-btn" title="Click points on satellite map to trace rooftop">
+                <i class="fa-solid fa-draw-polygon"></i> <span>Draw Roof</span>
+              </button>
+              <button type="button" id="btn-undo-point" class="draw-btn" disabled title="Removes the last placed vertex">
+                <i class="fa-solid fa-rotate-left"></i> <span>Undo</span>
+              </button>
+              <button type="button" id="btn-clear-roof" class="draw-btn" disabled title="Resets the polygon">
+                <i class="fa-solid fa-trash-can"></i> <span>Clear</span>
+              </button>
+              <button type="button" id="btn-calc-area" class="draw-btn" disabled title="Computes geodesic area using Turf.js">
+                <i class="fa-solid fa-calculator"></i> <span>Calculate Area</span>
+              </button>
+              <button type="button" id="btn-use-roof" class="draw-btn draw-btn-confirm" disabled title="Applies measured area to solar calculations">
+                <i class="fa-solid fa-check-double"></i> <span>Use Selected Roof</span>
+              </button>
+            </div>
+
+            <!-- Area Result Badge -->
+            <div class="roof-area-badge">
+              <span class="text-slate-400 text-[10px]">AREA:</span>
+              <span id="roof-area-text">--.- m² (-- ft²)</span>
+            </div>
+          </div>
+
+          <!-- GIS Scanning Telemetry Readout -->
+          <div class="grid grid-cols-4 gap-2 mt-3 text-center bg-slate-900/60 p-3 rounded-lg border border-slate-800 font-mono text-xs">
+            <div>
+              <span class="text-slate-500 block text-[10px]" data-i18n="tele_usable_area">USABLE AREA</span>
+              <span class="text-slate-200 font-bold" id="teleArea">60.4 m²</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block text-[10px]" data-i18n="tele_orientation">ORIENTATION</span>
+              <span class="text-amber-400 font-bold" id="teleAzimuth">South (180°)</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block text-[10px]" data-i18n="tele_shading">SHADOW LOSS</span>
+              <span class="text-emerald-400 font-bold" id="teleShd">4.2% (Low)</span>
+            </div>
+            <div>
+              <span class="text-slate-500 block text-[10px]" data-i18n="tele_capacity">REC. CAPACITY</span>
+              <span class="text-amber-400 font-bold" id="teleCap">3.8 kWp</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENVIRONMENTAL DATA LAYER READOUT (PHASE 2) -->
+      <div id="environmental-data-panel" class="card-box mb-8 border-teal-500/30" style="display: none;">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-mono text-teal-400 uppercase tracking-wider font-semibold"><i class="fa-solid fa-compass"></i> Rooftop Microclimate &amp; Orientation Profile</span>
+          </div>
+          <span class="text-xs font-mono text-slate-500">GEODESIC-DERIVED</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+          <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+            <span class="text-slate-500 block text-[10px]">CENTROID</span>
+            <span class="text-slate-200 font-bold" id="env-centroid">--</span>
+          </div>
+          <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+            <span class="text-slate-500 block text-[10px]">EDGE BEARING</span>
+            <span class="text-slate-200 font-bold" id="env-bearing">--</span>
+          </div>
+          <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+            <span class="text-slate-500 block text-[10px]">SOLAR AZIMUTH</span>
+            <span class="text-amber-400 font-bold" id="env-azimuth">--</span>
+          </div>
+          <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+            <span class="text-slate-500 block text-[10px]">TILT ANGLE</span>
+            <span class="text-slate-200 font-bold" id="env-tilt">15° (RCC)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ESTIMATION FINANCIAL BREAKDOWN SECTION -->
+      <div class="card-box mb-12 border-amber-500/30">
+        <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-4">
+          <div>
+            <div class="eyebrow mb-1"><span data-i18n="est_eyebrow">Financial Breakdown</span></div>
+            <h2 class="text-2xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="est_title">Total Investment &amp; Govt Subsidy Estimation</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400" data-i18n="est_disclaimer">*Based on PM Surya Ghar Benchmark Capital Cost Rules</span>
+          </div>
+        </div>
+
+        <!-- Key Highlight Metrics -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <span class="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-1" data-i18n="est_gross">Gross System Cost</span>
+            <div class="text-2xl font-bold font-mono text-slate-100" id="estGross">₹1,90,000</div>
+            <span class="text-xs text-slate-500 mt-1 block" id="estCapDetail">3.8 kWp Tier-1 PV Grid System</span>
+          </div>
+
+          <div class="bg-slate-900/80 border border-emerald-500/30 p-5 rounded-xl">
+            <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider block mb-1" data-i18n="est_subsidy">PM Surya Ghar Subsidy (CFA)</span>
+            <div class="text-2xl font-bold font-mono text-emerald-400" id="estSubsidy">- ₹78,000</div>
+            <span class="text-xs text-emerald-500/80 mt-1 block" data-i18n="est_subsidy_note">Direct Bank Transfer to Homeowner</span>
+          </div>
+
+          <div class="bg-slate-900/80 border border-amber-500/40 p-5 rounded-xl bg-amber-500/5">
+            <span class="text-xs font-mono text-amber-400 uppercase tracking-wider block mb-1" data-i18n="est_net">Net Out-Of-Pocket Investment</span>
+            <div class="text-3xl font-bold font-mono text-amber-300" id="estNet">₹1,12,000</div>
+            <span class="text-xs text-amber-400/80 mt-1 block" data-i18n="est_net_note">Total Tentative Payable Amount</span>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <span class="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-1" data-i18n="est_payback">Est. Payback Period</span>
+            <div class="text-2xl font-bold font-mono text-cyan-400" id="estPayback">2.9 Years</div>
+            <span class="text-xs text-slate-400 mt-1 block" id="estAnnualSavings">Annual Savings: ₹38,570</span>
+          </div>
+        </div>
+
+        <!-- Cost Itemization Table -->
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left font-mono text-xs">
+            <thead class="bg-slate-900 text-slate-400 border-b border-slate-800 uppercase">
+              <tr>
+                <th class="py-3 px-4" data-i18n="tbl_item">Component / Service</th>
+                <th class="py-3 px-4" data-i18n="tbl_spec">Technical Specification</th>
+                <th class="py-3 px-4 text-right" data-i18n="tbl_cost">Estimated Cost (₹)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 text-slate-300">
+              <tr>
+                <td class="py-3 px-4 flex items-center gap-2"><i class="fa-solid fa-solar-panel text-amber-400"></i> Mono PERC / TOPCon Solar Modules</td>
+                <td class="py-3 px-4 text-slate-400" id="specPanels">8 Panels @ 540Wp (3.8 kWp Total)</td>
+                <td class="py-3 px-4 text-right font-bold" id="costPanels">₹1,10,200</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-amber-400"></i> Grid-Tied On-Grid Inverter</td>
+                <td class="py-3 px-4 text-slate-400">MPPT Smart Dual Tracking String Inverter</td>
+                <td class="py-3 px-4 text-right font-bold" id="costInverter">₹34,200</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 flex items-center gap-2"><i class="fa-solid fa-layer-group text-amber-400"></i> Elevated Mounting Structure</td>
+                <td class="py-3 px-4 text-slate-400" id="specStructure">Hot-Dip Galvanized Structure (Wind-rated 150 km/h)</td>
+                <td class="py-3 px-4 text-right font-bold" id="costStructure">₹20,900</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 flex items-center gap-2"><i class="fa-solid fa-plug-circle-bolt text-amber-400"></i> Cables, BOS, Earthing &amp; Lightning Arrester</td>
+                <td class="py-3 px-4 text-slate-400">DC UV Solar Cables, LA, Dual Copper Ground Rods</td>
+                <td class="py-3 px-4 text-right font-bold" id="costBOS">₹13,300</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-4 flex items-center gap-2"><i class="fa-solid fa-file-contract text-amber-400"></i> DISCOM Net Metering &amp; Inspection Fees</td>
+                <td class="py-3 px-4 text-slate-400">Bi-directional Smart Meter + Test Charges</td>
+                <td class="py-3 px-4 text-right font-bold" id="costNetMeter">₹11,400</td>
+              </tr>
+              <tr class="bg-amber-500/10 font-bold text-sm text-slate-100">
+                <td class="py-3.5 px-4" colspan="2" data-i18n="tbl_total_net">FINAL NET OUT-OF-POCKET INVESTMENT (TENTATIVE)</td>
+                <td class="py-3.5 px-4 text-right text-amber-300" id="costFinalNet">₹1,12,000</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 10-YEAR WEATHER REPORT SECTION -->
+      <div class="card-box">
+        <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-4">
+          <div>
+            <div class="eyebrow"><span data-i18n="wx_eyebrow">Meteorological Telemetry</span></div>
+            <h2 class="text-2xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="wx_title">Past 10-Year Solar Weather &amp; Radiation Report</h2>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 font-mono" data-i18n="wx_period">HISTORICAL SPAN: 2016 – 2025</span>
+          </div>
+        </div>
+
+        <p class="text-sm text-slate-400 mb-6" data-i18n="wx_desc">
+          Satellite-derived solar irradiance (GHI kWh/m²/day), average annual temperature, precipitation, and clear sun days over the last decade at the selected location coordinates.
         </p>
 
-        <div class="hero-actions">
-          <a href="assessment.html" class="btn btn-primary">
-            Check Your Rooftop
-            <span class="btn-arrow">→</span>
-          </a>
-          <span class="mono-label" style="color: var(--line);">21.1458°N · 79.0882°E</span>
+        <!-- Weather Chart & Stats -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-8 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <h3 class="text-xs font-mono text-slate-400 uppercase mb-3" data-i18n="wx_chart_title">10-Year Solar Irradiance (GHI) &amp; Temperature Trend</h3>
+            <div class="h-64">
+              <canvas id="weatherChart"></canvas>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4 flex flex-col justify-between space-y-4">
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+              <span class="text-xs font-mono text-slate-400 block" data-i18n="wx_avg_ghi">10-Yr Avg Solar Radiation</span>
+              <div class="text-2xl font-bold font-mono text-amber-400 mt-1">5.18 kWh/m²/day</div>
+              <span class="text-xs text-slate-500" data-i18n="wx_ghi_note">High Class-A Solar Potential Zone</span>
+            </div>
+
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+              <span class="text-xs font-mono text-slate-400 block" data-i18n="wx_sunny_days">Avg Annual Sunny Days</span>
+              <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">292 Days / Year</div>
+              <span class="text-xs text-slate-500" data-i18n="wx_sun_note">Optimal generation window</span>
+            </div>
+
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+              <span class="text-xs font-mono text-slate-400 block" data-i18n="wx_temp">10-Yr Mean Temp &amp; Dust Index</span>
+              <div class="text-2xl font-bold font-mono text-cyan-400 mt-1">26.8°C | Low Dust</div>
+              <span class="text-xs text-slate-500" data-i18n="wx_temp_note">Panel Temperature Loss: ~3.8%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 2: PIPELINE TAB -->
+  <!-- ========================================================================= -->
+  <div id="page-pipeline" class="page-view">
+    <div class="wrap space-y-8">
+      <div class="card-box">
+        <div class="eyebrow"><span data-i18n="pipe_eyebrow">Automated Technical Workflow</span></div>
+        <h2 class="text-3xl font-normal text-amber-400 mb-3" style="font-family: var(--font-samarkan);" data-i18n="pipe_title">End-to-End Rooftop Audit &amp; Approval Pipeline</h2>
+        <p class="text-slate-400 text-sm max-w-3xl" data-i18n="pipe_desc">
+          OJAS automates all 6 critical technical stages — converting satellite coordinates into Single Line Diagrams (SLD), structural wind loads, and Discom feeder approvals.
+        </p>
+
+        <!-- 6 Steps Workflow Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono font-bold mb-4">01</div>
+            <h4 class="text-base font-semibold text-slate-100 mb-2" data-i18n="pipe_s1_t">Multi-Spectral Surface Scan</h4>
+            <p class="text-xs text-slate-400" data-i18n="pipe_s1_d">Sub-meter optical satellite passes combined with ISRO Cartosat DEM contours to map roof pitch and surface texture.</p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono font-bold mb-4">02</div>
+            <h4 class="text-base font-semibold text-slate-100 mb-2" data-i18n="pipe_s2_t">Footprint &amp; Boundary Extraction</h4>
+            <p class="text-xs text-slate-400" data-i18n="pipe_s2_d">Neural polygon fitting isolates usable terrace space from parapets, water tanks, mumty structures, and skylights.</p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono font-bold mb-4">03</div>
+            <h4 class="text-base font-semibold text-slate-100 mb-2" data-i18n="pipe_s3_t">Obstruction Shading Filter</h4>
+            <p class="text-xs text-slate-400" data-i18n="pipe_s3_d">Simulates 8,760 hourly solar angles to detect shadows cast by nearby trees, chimneys, and taller adjoining buildings.</p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono font-bold mb-4">04</div>
+            <h4 class="text-base font-semibold text-slate-100 mb-2" data-i18n="pipe_s4_t">Auto-SLD &amp; Technical CAD</h4>
+            <p class="text-xs text-slate-400" data-i18n="pipe_s4_d">Generates MNRE-standard Electrical Single Line Diagrams (SLD), string configuration, and DC combiner box ratings.</p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono font-bold mb-4">05</div>
+            <h4 class="text-base font-semibold text-slate-100 mb-2" data-i18n="pipe_s5_t">DISCOM Feeder Telemetry</h4>
+            <p class="text-xs text-slate-400" data-i18n="pipe_s5_d">Queries local Distribution Transformer (DT) capacity headroom to guarantee fast net-metering permit approval.</p>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-mono font-bold mb-4">06</div>
+            <h4 class="text-base font-semibold text-slate-100 mb-2" data-i18n="pipe_s6_t">PM Surya Ghar Portal Submission</h4>
+            <p class="text-xs text-slate-400" data-i18n="pipe_s6_d">One-click auto-fill for National Portal application, generating verifiable geo-tagged audit dossiers for EPCs.</p>
+          </div>
         </div>
       </div>
 
-      <!-- Signature Visual Moment: Custom SVG Illustration -->
-      <div class="hero-illustration">
-        <svg viewBox="0 0 500 400" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Background Grid Axis -->
-          <line x1="50" y1="350" x2="450" y2="350" stroke="#D8CFB8" stroke-width="1" stroke-dasharray="4 4" />
-          <line x1="50" y1="50" x2="50" y2="350" stroke="#D8CFB8" stroke-width="1" stroke-dasharray="4 4" />
+      <!-- Live SLD Interactive Diagram Tool -->
+      <div class="card-box">
+        <h3 class="text-lg font-mono text-amber-400 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-microchip"></i> Auto-Generated Electrical Single Line Diagram (SLD)
+        </h3>
+        <div class="bg-slate-950 p-6 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto">
+          <div class="flex items-center justify-between min-w-[700px]">
+            <!-- Modules -->
+            <div class="border border-amber-500/40 p-4 rounded-lg bg-amber-500/5 text-center w-44">
+              <i class="fa-solid fa-solar-panel text-amber-400 text-2xl mb-2"></i>
+              <div class="font-bold text-slate-100">PV Array (8x 540W)</div>
+              <div class="text-[10px] text-slate-400 mt-1">Vmp: 41.5V | Imp: 13.0A</div>
+            </div>
+            <i class="fa-solid fa-arrow-right text-slate-600 text-lg"></i>
+            <!-- DC Protection -->
+            <div class="border border-slate-700 p-4 rounded-lg bg-slate-900 text-center w-40">
+              <i class="fa-solid fa-box-archive text-cyan-400 text-xl mb-2"></i>
+              <div class="font-bold text-slate-100">DCDB / SPD</div>
+              <div class="text-[10px] text-slate-400 mt-1">1000V DC Fuse + Surge</div>
+            </div>
+            <i class="fa-solid fa-arrow-right text-slate-600 text-lg"></i>
+            <!-- Inverter -->
+            <div class="border border-emerald-500/40 p-4 rounded-lg bg-emerald-500/5 text-center w-44">
+              <i class="fa-solid fa-bolt text-emerald-400 text-2xl mb-2"></i>
+              <div class="font-bold text-slate-100">On-Grid Inverter</div>
+              <div class="text-[10px] text-slate-400 mt-1">4kW Dual MPPT 230V</div>
+            </div>
+            <i class="fa-solid fa-arrow-right text-slate-600 text-lg"></i>
+            <!-- Net Meter -->
+            <div class="border border-purple-500/40 p-4 rounded-lg bg-purple-500/5 text-center w-44">
+              <i class="fa-solid fa-gauge-high text-purple-400 text-2xl mb-2"></i>
+              <div class="font-bold text-slate-100">Bi-Directional Meter</div>
+              <div class="text-[10px] text-slate-400 mt-1">DISCOM Utility Grid</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 3: ROOFTOP AI TAB -->
+  <!-- ========================================================================= -->
+  <div id="page-ai" class="page-view">
+    <div class="wrap space-y-8">
+      <div class="card-box">
+        <div class="eyebrow"><span data-i18n="ai_eyebrow">Explainable AI &amp; Physics</span></div>
+        <h2 class="text-3xl font-normal text-amber-400 mb-3" style="font-family: var(--font-samarkan);" data-i18n="ai_title">Rooftop Solar Rating &amp; AI Shading Engine</h2>
+        <p class="text-slate-400 text-sm max-w-3xl" data-i18n="ai_desc">
+          OJAS evaluates roof physics with full explainability. Every suitability score transparently displays its mathematical parameters, structural weight constraints, and seasonal tilt loss.
+        </p>
+
+        <!-- Gauge & Parameters -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+          <div class="lg:col-span-4 bg-slate-900/90 border border-slate-800 p-8 rounded-xl flex flex-col items-center justify-center text-center">
+            <div class="relative w-40 h-40 mb-4 flex items-center justify-center">
+              <svg class="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="68" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10"/>
+                <circle cx="80" cy="80" r="68" fill="none" stroke="#10B981" stroke-width="10" stroke-linecap="round" stroke-dasharray="427" stroke-dashoffset="65"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="text-4xl font-bold font-mono text-slate-100" style="font-family: var(--font-samarkan);">8.6</span>
+                <span class="text-[11px] font-mono text-slate-500 uppercase">Out of 10 Score</span>
+              </div>
+            </div>
+            <span class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold px-3 py-1 rounded-full">
+              <i class="fa-solid fa-circle-check"></i> HIGHLY RECOMMENDED FOR PV
+            </span>
+          </div>
+
+          <!-- Factor Progress Bars -->
+          <div class="lg:col-span-8 space-y-4 justify-center flex flex-col">
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1">
+                <span class="text-slate-300">Effective Solar Insolation Exposure</span>
+                <span class="text-emerald-400 font-bold">94%</span>
+              </div>
+              <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: 94%;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1">
+                <span class="text-slate-300">Azimuth &amp; Tilt Alignment Offset</span>
+                <span class="text-emerald-400 font-bold">91%</span>
+              </div>
+              <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: 91%;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1">
+                <span class="text-slate-300">Parapet &amp; Obstruction Shade Loss</span>
+                <span class="text-amber-400 font-bold">- 6.5%</span>
+              </div>
+              <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-500 rounded-full" style="width: 18%;"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1">
+                <span class="text-slate-300">Local DISCOM Feeder Net-Metering Room</span>
+                <span class="text-cyan-400 font-bold">78% Headroom</span>
+              </div>
+              <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full bg-cyan-500 rounded-full" style="width: 78%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive AI 3D/2D Elevation Shading Canvas -->
+      <div class="card-box">
+        <h3 class="text-lg font-mono text-amber-400 mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-cube"></i> Interactive Elevation Shading &amp; Solar Ray Simulator
+        </h3>
+        <p class="text-xs text-slate-400 mb-4">Adjust solar hour to simulate shadow vectors across parapet boundaries.</p>
+
+        <div class="space-y-4">
+          <div class="flex items-center gap-4 bg-slate-900 p-3 rounded-lg border border-slate-800">
+            <label class="text-xs font-mono text-slate-300">Simulate Time of Day:</label>
+            <input type="range" id="solarHourSlider" min="6" max="18" value="12" class="flex-1 accent-amber-500" oninput="drawRooftopSim(this.value)">
+            <span class="text-xs font-mono text-amber-400 font-bold" id="solarHourText">12:00 PM (Noon)</span>
+          </div>
           
-          <!-- Sun Rays Spectrum (Marigold Converging Vectors) -->
-          <path d="M250 40 L50 280 M250 40 L110 280 M250 40 L170 280 M250 40 L230 280 M250 40 L290 280 M250 40 L350 280 M250 40 L410 280 M250 40 L450 280" stroke="#E8A33D" stroke-width="1.2" stroke-opacity="0.45" />
-
-          <!-- Sun Vector Node -->
-          <circle cx="250" cy="40" r="28" fill="#101B2D" stroke="#E8A33D" stroke-width="2" />
-          <circle cx="250" cy="40" r="14" fill="#E8A33D" />
-
-          <!-- Rooftop Grid Dots Converting to Data Vectors -->
-          <g id="rooftop-grid-nodes">
-            <!-- Row 1 -->
-            <circle cx="100" cy="180" r="4" fill="#1E6F65" />
-            <circle cx="160" cy="180" r="4" fill="#E8A33D" />
-            <circle cx="220" cy="180" r="4" fill="#1E6F65" />
-            <circle cx="280" cy="180" r="4" fill="#1E6F65" />
-            <circle cx="340" cy="180" r="4" fill="#E8A33D" />
-            <circle cx="400" cy="180" r="4" fill="#1E6F65" />
-
-            <!-- Row 2 (Isometric Rooftop Polygons) -->
-            <path d="M100 240 L160 210 L220 240 L160 270 Z" fill="rgba(30, 111, 101, 0.25)" stroke="#1E6F65" stroke-width="1.5" />
-            <path d="M240 240 L300 210 L360 240 L300 270 Z" fill="rgba(232, 163, 61, 0.2)" stroke="#E8A33D" stroke-width="1.5" />
-            <path d="M380 240 L440 210 L500 240 L440 270 Z" fill="rgba(30, 111, 101, 0.25)" stroke="#1E6F65" stroke-width="1.5" stroke-dasharray="2 2" />
-
-            <!-- Vector Connecting Lines -->
-            <line x1="160" y1="210" x2="160" y2="180" stroke="#79D1C7" stroke-width="1" stroke-dasharray="2 2" />
-            <line x1="300" y1="210" x2="340" y2="180" stroke="#E8A33D" stroke-width="1" stroke-dasharray="2 2" />
-          </g>
-
-          <!-- Micro Coordinate Callout Box inside SVG -->
-          <rect x="270" y="300" width="170" height="34" fill="#101B2D" stroke="#D8CFB8" stroke-width="1" />
-          <text x="282" y="322" fill="#FAF7F0" font-family="IBM Plex Mono" font-size="10" letter-spacing="0.5">EST: 4.85 kWh/m²/day</text>
-        </svg>
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-4 flex justify-center">
+            <canvas id="aiRoofCanvas" width="700" height="300" class="max-w-full h-auto"></canvas>
+          </div>
+        </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- Stats Strip Below Hero -->
-  <section class="stats-section">
-    <div class="stats-grid">
+  <!-- ========================================================================= -->
+  <!-- PAGE 4: SUBSIDY ROI TAB -->
+  <!-- ========================================================================= -->
+  <div id="page-roi" class="page-view">
+    <div class="wrap space-y-8">
+      <div class="card-box border-emerald-500/30">
+        <div class="eyebrow"><span data-i18n="roi_eyebrow">PM Surya Ghar Calculator</span></div>
+        <h2 class="text-3xl font-normal text-amber-400 mb-3" style="font-family: var(--font-samarkan);" data-i18n="roi_title">Govt Subsidy &amp; 25-Year Financial Return Model</h2>
+        <p class="text-slate-400 text-sm max-w-3xl" data-i18n="roi_desc">
+          Calculate Central Financial Assistance (CFA) under PM Surya Ghar : Muft Bijli Yojana rules, compute cumulative 25-year cash flows, and inspect green carbon offsets.
+        </p>
 
-      <div class="stat-card tick-panel">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="stat-header">
-          <span class="stat-accent-tag">SCHEME TARGET</span>
+        <!-- Subsidy Rules Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl text-center">
+            <span class="text-xs font-mono text-slate-400 block mb-1">Capacity Up to 2 kW</span>
+            <div class="text-2xl font-bold font-mono text-emerald-400">₹30,000 / kW</div>
+            <span class="text-xs text-slate-500 mt-1 block">Max ₹60,000 for 2 kW System</span>
+          </div>
+          <div class="bg-slate-900/80 border border-amber-500/30 p-5 rounded-xl text-center bg-amber-500/5">
+            <span class="text-xs font-mono text-amber-400 block mb-1">Additional 3rd kW</span>
+            <div class="text-2xl font-bold font-mono text-amber-300">₹18,000 / kW</div>
+            <span class="text-xs text-amber-400/80 mt-1 block">Capped at ₹78,000 Max Subsidy</span>
+          </div>
+          <div class="bg-slate-900/80 border border-slate-800 p-5 rounded-xl text-center">
+            <span class="text-xs font-mono text-slate-400 block mb-1">Above 3 kW Capacity</span>
+            <div class="text-2xl font-bold font-mono text-slate-300">Flat ₹78,000</div>
+            <span class="text-xs text-slate-500 mt-1 block">CFA Capped at 3 kW Maximum</span>
+          </div>
         </div>
-        <div class="stat-value">1 Crore</div>
-        <div class="stat-label">Indian Households Targeted</div>
       </div>
 
-      <div class="stat-card tick-panel">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="stat-header">
-          <span class="stat-accent-tag">BENEFIT</span>
+      <!-- 25-Year Cumulative Savings Graph -->
+      <div class="card-box">
+        <h3 class="text-lg font-mono text-amber-400 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-chart-line"></i> 25-Year Cumulative Electricity Savings vs Grid Tariff Escalation
+        </h3>
+        <div class="h-72">
+          <canvas id="roiChart"></canvas>
         </div>
-        <div class="stat-value">300 Units</div>
-        <div class="stat-label">Free Electricity / Month</div>
       </div>
-
-      <div class="stat-card tick-panel">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="stat-header">
-          <span class="stat-accent-tag">CENTRAL SUBSIDY</span>
-        </div>
-        <div class="stat-value">₹78,000</div>
-        <div class="stat-label">Max Financial Assistance</div>
-      </div>
-
-      <div class="stat-card tick-panel">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="stat-header">
-          <span class="stat-accent-tag">PUBLIC IMPACT</span>
-        </div>
-        <div class="stat-value">53L+</div>
-        <div class="stat-label">Applications Received</div>
-      </div>
-
     </div>
-  </section>
+  </div>
 
-  <!-- Feature Preview Section -->
-  <section class="features-section">
-    <div class="section-header">
-      <div>
-        <span class="mono-label">SURVEY READINESS FEASIBILITY</span>
-        <h2 class="section-title">What OJAS Screens For</h2>
+  <!-- ========================================================================= -->
+  <!-- PAGE 5: DISTRICT GIS TAB -->
+  <!-- ========================================================================= -->
+  <div id="page-gis" class="page-view">
+    <div class="wrap space-y-8">
+      <div class="card-box">
+        <div class="eyebrow"><span data-i18n="gis_eyebrow">State &amp; Municipal Dashboard</span></div>
+        <h2 class="text-3xl font-normal text-amber-400 mb-3" style="font-family: var(--font-samarkan);" data-i18n="gis_title">District Ward Solar Potential &amp; Feeder Headroom Heatmap</h2>
+        <p class="text-slate-400 text-sm max-w-3xl" data-i18n="gis_desc">
+          Aggregates individual rooftop scans into DISCOM feeder headroom intelligence and municipal ward rollout planning.
+        </p>
+
+        <!-- Ward Heatmap Grid & Telemetry -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+          <div class="lg:col-span-7 bg-slate-900/90 border border-slate-800 p-6 rounded-xl">
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="text-xs font-mono text-slate-300 uppercase">Interactive Ward Grid (Hover / Click Ward)</h4>
+              <span class="text-xs font-mono text-amber-400">DISTRICT: KOLKATA METRO</span>
+            </div>
+            <!-- 6x6 Interactive Ward Grid -->
+            <div class="grid grid-cols-6 gap-2 aspect-square max-h-[340px] mx-auto" id="wardHeatmapGrid"></div>
+
+            <div class="flex items-center justify-center gap-6 mt-4 text-xs font-mono text-slate-400">
+              <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded bg-emerald-500 inline-block"></i> High Solar Potential</span>
+              <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded bg-amber-500 inline-block"></i> Moderate</span>
+              <span class="flex items-center gap-1.5"><i class="w-3 h-3 rounded bg-slate-700 inline-block"></i> Feeder Saturated</span>
+            </div>
+          </div>
+
+          <!-- Selected Ward Telemetry -->
+          <div class="lg:col-span-5 flex flex-col justify-between space-y-4">
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+              <span class="text-xs font-mono text-slate-400 block" id="selectedWardName">SELECTED: WARD 14 (PARK STREET)</span>
+              <div class="text-3xl font-bold font-mono text-amber-400 mt-2" id="selectedWardScore">8.8 / 10</div>
+              <span class="text-xs text-slate-500" data-i18n="gis_suitability">Ward Solar Suitability Index</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+              <span class="text-xs font-mono text-slate-400 block">UNTAPPED ROOFTOP POTENTIAL</span>
+              <div class="text-2xl font-bold font-mono text-emerald-400 mt-1" id="selectedWardPot">5.2 MWp</div>
+              <span class="text-xs text-slate-500">Est. 1,420 Eligible Terrace Subsidies</span>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+              <span class="text-xs font-mono text-slate-400 block">SUBSTATION FEEDER HEADROOM</span>
+              <div class="text-2xl font-bold font-mono text-cyan-400 mt-1" id="selectedWardHeadroom">82% Capacity Available</div>
+              <span class="text-xs text-slate-500">Fast-track net-meter approval zone</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <a href="assessment.html" class="btn btn-outline-ink">
-        Launch Full Assessment →
-      </a>
     </div>
+  </div>
 
-    <div class="features-grid">
+  <!-- ========================================================================= -->
+  <!-- PAGE 6: EMPANELLED VENDORS TAB -->
+  <!-- ========================================================================= -->
+  <div id="page-vendors" class="page-view">
+    <div class="wrap space-y-8">
+      <div class="card-box">
+        <div class="eyebrow"><span data-i18n="ven_eyebrow">MNRE Accredited Installers</span></div>
+        <h2 class="text-3xl font-normal text-amber-400 mb-3" style="font-family: var(--font-samarkan);" data-i18n="ven_title">Empanelled Solar EPC Vendors Directory</h2>
+        <p class="text-slate-400 text-sm max-w-3xl" data-i18n="ven_desc">
+          Connect directly with government-empanelled EPC vendors offering benchmark pricing, 5-year comprehensive maintenance, and seamless CFA subsidy filing.
+        </p>
 
-      <!-- Feature 1: Shading -->
-      <div class="feature-card tick-panel accent-teal">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="feature-icon-wrapper">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-            <path d="M12 6a6 6 0 100 12 6 6 0 000-12z" stroke-dasharray="3 3" />
-          </svg>
+        <!-- Vendors Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+          <!-- Vendor 1 -->
+          <div class="bg-slate-900/90 border border-slate-800 p-6 rounded-xl hover:border-amber-500/40 transition">
+            <div class="flex items-center justify-between mb-3">
+              <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded">MNRE GRADE A</span>
+              <span class="text-amber-400 font-mono text-xs"><i class="fa-solid fa-star"></i> 4.9 (128 Reviews)</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-100 mb-1">SuryaShakti EPC Solutions</h3>
+            <p class="text-xs text-slate-400 mb-4"><i class="fa-solid fa-location-dot text-slate-500"></i> Kolkata &amp; West Bengal Discoms</p>
+            <div class="border-t border-slate-800 pt-3 mb-4 space-y-1 text-xs font-mono text-slate-300">
+              <div>Installations: <span class="text-slate-100 font-bold">1,450+ Homes</span></div>
+              <div>Benchmark Rate: <span class="text-amber-400 font-bold">₹48,000 / kW</span></div>
+            </div>
+            <button class="btn-primary w-full text-xs" onclick="openVendorModal('SuryaShakti EPC Solutions')">Request Instant Quote</button>
+          </div>
+
+          <!-- Vendor 2 -->
+          <div class="bg-slate-900/90 border border-slate-800 p-6 rounded-xl hover:border-amber-500/40 transition">
+            <div class="flex items-center justify-between mb-3">
+              <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded">MNRE GRADE A</span>
+              <span class="text-amber-400 font-mono text-xs"><i class="fa-solid fa-star"></i> 4.8 (94 Reviews)</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-100 mb-1">Apex Green Energy Infra</h3>
+            <p class="text-xs text-slate-400 mb-4"><i class="fa-solid fa-location-dot text-slate-500"></i> Mumbai &amp; Maharashtra Discoms</p>
+            <div class="border-t border-slate-800 pt-3 mb-4 space-y-1 text-xs font-mono text-slate-300">
+              <div>Installations: <span class="text-slate-100 font-bold">980+ Homes</span></div>
+              <div>Benchmark Rate: <span class="text-amber-400 font-bold">₹47,500 / kW</span></div>
+            </div>
+            <button class="btn-primary w-full text-xs" onclick="openVendorModal('Apex Green Energy Infra')">Request Instant Quote</button>
+          </div>
+
+          <!-- Vendor 3 -->
+          <div class="bg-slate-900/90 border border-slate-800 p-6 rounded-xl hover:border-amber-500/40 transition">
+            <div class="flex items-center justify-between mb-3">
+              <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-bold px-2 py-0.5 rounded">MNRE GRADE A</span>
+              <span class="text-amber-400 font-mono text-xs"><i class="fa-solid fa-star"></i> 4.9 (210 Reviews)</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-100 mb-1">Pratham Solar Tech</h3>
+            <p class="text-xs text-slate-400 mb-4"><i class="fa-solid fa-location-dot text-slate-500"></i> Delhi NCR &amp; UP Power Corp</p>
+            <div class="border-t border-slate-800 pt-3 mb-4 space-y-1 text-xs font-mono text-slate-300">
+              <div>Installations: <span class="text-slate-100 font-bold">2,100+ Homes</span></div>
+              <div>Benchmark Rate: <span class="text-amber-400 font-bold">₹46,800 / kW</span></div>
+            </div>
+            <button class="btn-primary w-full text-xs" onclick="openVendorModal('Pratham Solar Tech')">Request Instant Quote</button>
+          </div>
         </div>
-        <h3>Shading & Irradiance</h3>
-        <p>3D solar trajectory calculations accounting for neighboring structures, tree canopy obstacles, and seasonal shadow profiles.</p>
       </div>
-
-      <!-- Feature 2: Structure -->
-      <div class="feature-card tick-panel accent-teal">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="feature-icon-wrapper">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="0" />
-            <path d="M3 9h18M9 21V9M15 21V9" />
-          </svg>
-        </div>
-        <h3>Roof Structure</h3>
-        <p>Usable roof area measurement, load-bearing estimation, slope tilt alignment, and obstruction clearance masking.</p>
-      </div>
-
-      <!-- Feature 3: Grid Load -->
-      <div class="feature-card tick-panel accent-marigold">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="feature-icon-wrapper">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-          </svg>
-        </div>
-        <h3>DISCOM Grid Load</h3>
-        <p>Local transformer capacity checks, Net Metering eligibility validation, and distribution feeder headroom verification.</p>
-      </div>
-
-      <!-- Feature 4: Vendors -->
-      <div class="feature-card tick-panel accent-teal">
-        <div class="tick-panel-corner-tr"></div>
-        <div class="tick-panel-corner-bl"></div>
-        <div class="feature-icon-wrapper">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
-          </svg>
-        </div>
-        <h3>Empanelled Vendors</h3>
-        <p>Direct match with MNRE approved local solar installers, verified warranty benchmarks, and subsidy claim processing.</p>
-      </div>
-
     </div>
-  </section>
+  </div>
 
-  <!-- Live Status Feedback / Activity Console -->
-  <section class="status-panel-wrapper">
-    <div class="status-console tick-panel">
+  <!-- VENDOR QUOTE REQUEST MODAL -->
+  <div id="vendorModal" class="modal-backdrop">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-xl max-w-md w-full mx-4 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold text-amber-400" id="modalVendorTitle">Connect with Vendor</h3>
+        <i class="fa-solid fa-xmark text-slate-400 cursor-pointer hover:text-white" onclick="closeVendorModal()"></i>
+      </div>
+      <p class="text-xs text-slate-400">Submit your satellite audit dossier to get an official site verification call within 24 hours.</p>
+      <div class="space-y-3 font-mono text-xs">
+        <input type="text" id="modalCustName" placeholder="Full Name" class="form-input w-full">
+        <input type="tel" id="modalCustPhone" placeholder="Mobile Number (+91)" class="form-input w-full">
+        <button class="btn-primary w-full" onclick="submitVendorApplication()">
+          Submit Audit Dossier &amp; Connect
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE STATUS CONSOLE LOG -->
+  <div class="wrap pb-12">
+    <div class="status-console">
       <div class="console-header">
-        <div class="console-title">
-          <span class="console-status-dot"></span>
-          <span>OJAS SYSTEM ACTIVITY CONSOLE</span>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-[11px] font-bold text-slate-300">OJAS SOVEREIGN GIS TELEMETRY CONSOLE</span>
         </div>
-        <span class="mono-label" style="color: #64748B;">LIVE LOG FEED · PORT: 8000</span>
+        <span class="text-[10px] text-slate-500">GATEWAY: http://localhost:8000</span>
       </div>
-      <div class="console-body" id="status-console-body">
-        <!-- Live logs injected dynamically via js/status-panel.js -->
-      </div>
+      <div class="console-body" id="status-console-body"></div>
     </div>
-  </section>
+  </div>
 
   <!-- Footer -->
-  <footer class="footer">
-    <div class="footer-container">
+  <footer class="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-600 font-mono">
+    <div class="wrap flex flex-col sm:flex-row items-center justify-between gap-2">
       <div>
-        <strong>OJAS</strong> · PM Surya Ghar Rooftop Solar Assessment Platform
+        <strong class="text-slate-400" style="font-family: var(--font-samarkan);">OJAS</strong> — PM Surya Ghar Muft Bijli Yojana Assessment Engine
       </div>
-      <div class="mono-label">
-        SURVEY SHEET STAMP: 21.1458°N · 79.0882°E
+      <div>
+        SURVEY COORDINATES: 22.5529° N · 88.3524° E
       </div>
     </div>
   </footer>
 
-  <!-- Scripts -->
+  <!-- Core Scripts -->
   <script src="js/status-panel.js"></script>
+  <script src="js/environmental.js"></script>
+  <script src="js/map.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
