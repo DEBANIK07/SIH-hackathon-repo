@@ -51,6 +51,7 @@ class EnergyEstimateRequest(BaseModel):
     panel_type: Optional[str] = Field(default="monocrystalline", description="Selected ALMM panel type")
     roof_material: Optional[str] = Field(default="rcc", description="Roof construction material ('rcc', 'tin', 'tile', 'asbestos', 'wood')")
     usable_area_factor: Optional[float] = Field(default=None, description="Optional custom usable area factor override (0.1 to 1.0)")
+    obstacle_area_m2: Optional[float] = Field(default=0.0, description="Total obstacle keep-out area in square meters")
     geometry: Optional[GeometryPayload] = Field(default=None, description="Optional nested Phase 2 geometry object")
 
 
@@ -103,7 +104,8 @@ async def estimate_energy(req: EnergyEstimateRequest):
             bill_offset_percent=req.bill_offset_percent or 100.0,
             panel_type=req.panel_type or "monocrystalline",
             roof_material=req.roof_material or "rcc",
-            usable_area_factor=req.usable_area_factor
+            usable_area_factor=req.usable_area_factor,
+            obstacle_area_m2=req.obstacle_area_m2 or 0.0
         )
         return result
     except Exception as exc:

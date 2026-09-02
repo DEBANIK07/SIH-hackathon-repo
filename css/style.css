@@ -195,6 +195,21 @@ nav .wrap {
   user-select: none;
 }
 
+.brand-logo-img {
+  height: 42px;
+  width: auto;
+  max-width: 130px;
+  object-fit: contain;
+  border-radius: 8px;
+  filter: drop-shadow(0 2px 10px rgba(245, 158, 11, 0.35));
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.logo:hover .brand-logo-img {
+  transform: scale(1.05);
+  filter: drop-shadow(0 4px 14px rgba(245, 158, 11, 0.55));
+}
+
 .logo-icon {
   width: 36px;
   height: 36px;
@@ -419,6 +434,46 @@ nav .wrap {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Obstacle Keep-Out Markers & Tags */
+.obstacle-keepout-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.obstacle-keepout-dot-inner {
+  width: 10px;
+  height: 10px;
+  background: #EF4444;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.9);
+}
+
+.obstacle-tag {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #F87171;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plane-area-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34D399;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 
 /* Address Dropdown */

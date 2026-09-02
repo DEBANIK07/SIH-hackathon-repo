@@ -42,7 +42,8 @@ def calculate_energy_estimate(
     bill_offset_percent: float = 100.0,
     panel_type: str = "monocrystalline",
     roof_material: str = "rcc",
-    usable_area_factor: float = None
+    usable_area_factor: float = None,
+    obstacle_area_m2: float = 0.0
 ) -> Dict[str, Any]:
     """
     Computes usable rooftop area, system capacity, and runs PVLib physical solar yield simulation.
@@ -57,22 +58,30 @@ def calculate_energy_estimate(
     :param panel_type: User-selected ALMM panel type key
     :param roof_material: Roof construction material ('rcc', 'tin', 'tile', 'asbestos', 'wood')
     :param usable_area_factor: Optional direct override of usable factor (0.1 to 1.0)
+    :param obstacle_area_m2: Sum of detected/drawn obstacle keep-outs in m²
     :returns: Comprehensive energy calculation result dictionary
     """
     # --------------------------------------------------------------------------
-    # Step 1: Usable Rooftop Area Calculation with Material-Specific Derating
+    # Step 1: Usable Rooftop Area Calculation with Material-Specific Derating & Obstacle Deduction
     # --------------------------------------------------------------------------
     polygon_area_m2 = max(1.0, float(polygon_area_m2))
+    obs_area = max(0.0, float(obstacle_area_m2))
     
     mat_key = str(roof_material).lower().strip()
     if usable_area_factor is not None and 0.1 <= float(usable_area_factor) <= 1.0:
         factor = float(usable_area_factor)
+        usable_area_m2 = round(polygon_area_m2 * factor, 2)
+    elif obs_area > 0.0:
+        setback_m2 = polygon_area_m2 * 0.08  # 1.5ft perimeter fire buffer
+        usable_area_m2 = round(max(1.0, polygon_area_m2 - obs_area - setback_m2), 2)
+        factor = round(usable_area_m2 / polygon_area_m2, 3)
     else:
         factor = ROOF_MATERIAL_USABLE_FACTORS.get(mat_key, DEFAULT_USABLE_AREA_FACTOR)
+        usable_area_m2 = round(polygon_area_m2 * factor, 2)
 
-    usable_area_m2 = round(polygon_area_m2 * factor, 2)
     gross_area_sqft = round(polygon_area_m2 * 10.7639, 1)
     usable_area_sqft = round(usable_area_m2 * 10.7639, 1)
+    obstacle_area_sqft = round(obs_area * 10.7639, 1)
 
     # --------------------------------------------------------------------------
     # Step 2: System Size (kWp) & Panel Layout Derivation
@@ -199,8 +208,12 @@ def calculate_energy_estimate(
         "area_derivation": {
             "gross_area_m2": polygon_area_m2,
             "usable_area_m2": usable_area_m2,
+            "net_plane_usable_m2": usable_area_m2,
             "gross_area_sqft": gross_area_sqft,
             "usable_area_sqft": usable_area_sqft,
+            "net_plane_usable_sqft": usable_area_sqft,
+            "obstacle_area_m2": obs_area,
+            "obstacle_area_sqft": obstacle_area_sqft,
             "usable_area_factor": factor,
             "usable_area_percent": round(factor * 100, 1),
             "perimeter_keepout_factor_percent": round((1.0 - factor) * 100, 1)

@@ -40,15 +40,9 @@
   <nav id="navbar">
     <div class="wrap">
       <!-- Brand Logo -->
-      <div class="logo" onclick="location.href='index.html'" title="OJAS Solar Platform">
-        <span class="logo-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--solar-gold)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-          </svg>
-        </span>
-        <span style="font-family: var(--font-samarkan);">OJAS</span>
-        <span class="text-[10px] font-mono tracking-wider text-amber-500/80 border border-amber-500/30 px-1.5 py-0.5 rounded ml-1 hidden sm:inline-block">ASSESSMENT · v2.0</span>
+      <div class="logo flex items-center gap-3" onclick="location.href='index.html'" title="OJAS Solar Platform">
+        <img src="images/logo.png" alt="OJAS Logo" class="brand-logo-img">
+        <span class="text-[10px] font-mono tracking-wider text-amber-500/80 border border-amber-500/30 px-1.5 py-0.5 rounded hidden sm:inline-block">ASSESSMENT · v2.0</span>
       </div>
 
       <!-- Navigation Tabs (6 Interactive Views) -->
@@ -220,29 +214,38 @@
             </div>
           </div>
 
-          <!-- ROOFTOP TRACING TOOLBAR -->
+          <!-- ROOFTOP POLYGON TRACING & OBSTACLE DETECTION TOOLBAR -->
           <div class="draw-toolbar">
             <div class="draw-btn-group">
               <button type="button" id="btn-draw-roof" class="draw-btn" title="Click points on satellite map to trace rooftop">
                 <i class="fa-solid fa-draw-polygon"></i> <span>Draw Roof</span>
               </button>
+              <button type="button" id="btn-detect-obstacles" class="draw-btn bg-rose-500/10 border-rose-500/30 text-rose-300 hover:bg-rose-500/20" title="AI detects water tanks, mumty headroom, HVAC units, and perimeter keep-out zones">
+                <i class="fa-solid fa-microchip text-rose-400"></i> <span>Auto-Detect Obstacles</span>
+              </button>
+              <button type="button" id="btn-add-obstacle" class="draw-btn" title="Click 3+ corners on roof to mark custom obstacle">
+                <i class="fa-solid fa-vector-square text-amber-400"></i> <span>+ Add Obstacle</span>
+              </button>
+              <button type="button" id="btn-clear-obstacles" class="draw-btn" disabled title="Remove obstacle keep-outs">
+                <i class="fa-solid fa-ban"></i> <span>Clear Obstacles</span>
+              </button>
               <button type="button" id="btn-undo-point" class="draw-btn" disabled title="Removes the last placed vertex">
                 <i class="fa-solid fa-rotate-left"></i> <span>Undo</span>
               </button>
               <button type="button" id="btn-clear-roof" class="draw-btn" disabled title="Resets the polygon">
-                <i class="fa-solid fa-trash-can"></i> <span>Clear</span>
+                <i class="fa-solid fa-trash-can"></i> <span>Clear Roof</span>
               </button>
-              <button type="button" id="btn-calc-area" class="draw-btn" disabled title="Computes geodesic area using Turf.js">
+              <button type="button" id="btn-calc-area" class="draw-btn" disabled title="Computes geodesic area subtracting obstacles">
                 <i class="fa-solid fa-calculator"></i> <span>Calculate Area</span>
               </button>
-              <button type="button" id="btn-use-roof" class="draw-btn draw-btn-confirm" disabled title="Applies measured area to solar calculations">
+              <button type="button" id="btn-use-roof" class="draw-btn draw-btn-confirm" disabled title="Applies actual plane usable area to solar calculations">
                 <i class="fa-solid fa-check-double"></i> <span>Use Selected Roof</span>
               </button>
             </div>
 
             <!-- Area Result Badge -->
             <div class="roof-area-badge">
-              <span class="text-slate-400 text-[10px]">AREA:</span>
+              <span class="text-slate-400 text-[10px]">PLANE AREA:</span>
               <span id="roof-area-text">--.- m² (-- ft²)</span>
             </div>
           </div>

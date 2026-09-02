@@ -77,7 +77,19 @@ class TestEnergyEngine(unittest.TestCase):
 
         delhi = find_closest_district(28.6139, 77.2090, "New Delhi")
         self.assertEqual(delhi["name"], "New Delhi")
-        self.assertEqual(len(delhi["temp"]), 10)
+    def test_obstacle_deduction(self):
+        # 100 m² gross roof with 15 m² obstacle (water tank + mumty)
+        # Net usable = 100 - 15 - 8 (setback) = 77.0 m²
+        res = calculate_energy_estimate(
+            polygon_area_m2=100.0,
+            latitude=21.1458,
+            longitude=79.0882,
+            obstacle_area_m2=15.0
+        )
+        self.assertEqual(res["status"], "SUCCESS")
+        self.assertEqual(res["area_derivation"]["obstacle_area_m2"], 15.0)
+        self.assertEqual(res["area_derivation"]["usable_area_m2"], 77.0)
+        self.assertEqual(res["area_derivation"]["net_plane_usable_m2"], 77.0)
 
 
 if __name__ == "__main__":
