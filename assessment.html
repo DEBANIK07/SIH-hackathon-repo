@@ -357,7 +357,10 @@
             <div class="eyebrow"><span data-i18n="wx_eyebrow">Meteorological Telemetry</span></div>
             <h2 class="text-2xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="wx_title">Past 10-Year Solar Weather &amp; Radiation Report</h2>
           </div>
-          <span class="text-xs text-slate-400 font-mono" data-i18n="wx_period">HISTORICAL SPAN: 2016 – 2025</span>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-amber-400 font-mono bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded" id="wxDistrictBadge">DISTRICT: KOLKATA METRO</span>
+            <span class="text-xs text-slate-400 font-mono" data-i18n="wx_period" id="wxPeriodText">HISTORICAL SPAN: 2016 – 2025</span>
+          </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -370,18 +373,18 @@
           <div class="lg:col-span-4 flex flex-col justify-between space-y-4">
             <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
               <span class="text-xs font-mono text-slate-400 block" data-i18n="wx_avg_ghi">10-Yr Avg Solar Radiation</span>
-              <div class="text-2xl font-bold font-mono text-amber-400 mt-1">5.18 kWh/m²/day</div>
-              <span class="text-xs text-slate-500" data-i18n="wx_ghi_note">High Class-A Solar Potential Zone</span>
+              <div class="text-2xl font-bold font-mono text-amber-400 mt-1" id="wxAvgGhiVal">5.18 kWh/m²/day</div>
+              <span class="text-xs text-slate-500" data-i18n="wx_ghi_note" id="wxGhiNote">High Class-A Solar Potential Zone</span>
             </div>
             <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
               <span class="text-xs font-mono text-slate-400 block" data-i18n="wx_sunny_days">Avg Annual Sunny Days</span>
-              <div class="text-2xl font-bold font-mono text-emerald-400 mt-1">292 Days / Year</div>
-              <span class="text-xs text-slate-500" data-i18n="wx_sun_note">Optimal generation window</span>
+              <div class="text-2xl font-bold font-mono text-emerald-400 mt-1" id="wxSunnyDaysVal">292 Days / Year</div>
+              <span class="text-xs text-slate-500" data-i18n="wx_sun_note" id="wxSunNote">Optimal generation window</span>
             </div>
             <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
               <span class="text-xs font-mono text-slate-400 block" data-i18n="wx_temp">10-Yr Mean Temp &amp; Dust Index</span>
-              <div class="text-2xl font-bold font-mono text-cyan-400 mt-1">26.8°C | Low Dust</div>
-              <span class="text-xs text-slate-500" data-i18n="wx_temp_note">Panel Temperature Loss: ~3.8%</span>
+              <div class="text-2xl font-bold font-mono text-cyan-400 mt-1" id="wxTempVal">26.8°C | Low Dust</div>
+              <span class="text-xs text-slate-500" data-i18n="wx_temp_note" id="wxTempNote">Panel Temperature Loss: ~3.8%</span>
             </div>
           </div>
         </div>

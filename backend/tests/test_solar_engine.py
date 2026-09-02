@@ -1,10 +1,13 @@
-"""
-Unit tests for OJAS Energy Calculation Engine backend & pvlib simulation
-"""
-
 import unittest
 from backend.services.solar_engine import calculate_energy_estimate, calculate_pm_surya_ghar_subsidy
-from backend.config import USABLE_AREA_FACTOR, ALMM_PANEL_CATALOG
+from backend.config import (
+    USABLE_AREA_FACTOR,
+    DEFAULT_USABLE_AREA_FACTOR,
+    ROOF_MATERIAL_USABLE_FACTORS,
+    DISTRICT_CLIMATE_DATA,
+    ALMM_PANEL_CATALOG
+)
+from backend.main import find_closest_district, get_weather_history
 
 
 class TestEnergyEngine(unittest.TestCase):
@@ -16,10 +19,21 @@ class TestEnergyEngine(unittest.TestCase):
             latitude=21.1458,
             longitude=79.0882,
             bill_offset_percent=100.0,
-            panel_type="monocrystalline"
+            panel_type="monocrystalline",
+            roof_material="rcc"
         )
         self.assertEqual(res["status"], "SUCCESS")
         self.assertEqual(res["area_derivation"]["usable_area_m2"], 75.0)
+        self.assertEqual(res["area_derivation"]["gross_area_m2"], 100.0)
+
+    def test_material_specific_usable_factors(self):
+        # Tin roof has 0.80 factor -> 80 m² usable for 100 m² gross
+        res_tin = calculate_energy_estimate(100.0, 21.1458, 79.0882, roof_material="tin")
+        self.assertEqual(res_tin["area_derivation"]["usable_area_m2"], 80.0)
+
+        # Tile roof has 0.65 factor -> 65 m² usable for 100 m² gross
+        res_tile = calculate_energy_estimate(100.0, 21.1458, 79.0882, roof_material="tile")
+        self.assertEqual(res_tile["area_derivation"]["usable_area_m2"], 65.0)
 
     def test_system_capacity_sizing(self):
         # 75 m² usable / 1.7 m² panel footprint = 44 panels
@@ -56,6 +70,16 @@ class TestEnergyEngine(unittest.TestCase):
         self.assertGreater(pv["annual_generation_kwh"], 0)
         self.assertGreater(res["financial_environmental_impact"]["annual_savings_inr"], 0)
 
+    def test_district_climate_lookup(self):
+        kolkata = find_closest_district(22.5726, 88.3639, "Kolkata")
+        self.assertEqual(kolkata["name"], "Kolkata")
+        self.assertEqual(len(kolkata["ghi"]), 10)
+
+        delhi = find_closest_district(28.6139, 77.2090, "New Delhi")
+        self.assertEqual(delhi["name"], "New Delhi")
+        self.assertEqual(len(delhi["temp"]), 10)
+
 
 if __name__ == "__main__":
     unittest.main()
+

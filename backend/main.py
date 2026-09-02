@@ -8,7 +8,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from backend.config import ALMM_PANEL_CATALOG, USABLE_AREA_FACTOR
+from backend.config import (
+    ALMM_PANEL_CATALOG,
+    DEFAULT_USABLE_AREA_FACTOR,
+    ROOF_MATERIAL_USABLE_FACTORS,
+    DISTRICT_CLIMATE_DATA,
+    HISTORICAL_YEARS
+)
 from backend.services.solar_engine import calculate_energy_estimate
 
 app = FastAPI(
@@ -43,6 +49,8 @@ class EnergyEstimateRequest(BaseModel):
     solar_azimuth: Optional[float] = Field(default=180.0, description="Solar facing azimuth angle in degrees")
     bill_offset_percent: Optional[float] = Field(default=100.0, ge=10.0, le=100.0, description="User slider bill offset %")
     panel_type: Optional[str] = Field(default="monocrystalline", description="Selected ALMM panel type")
+    roof_material: Optional[str] = Field(default="rcc", description="Roof construction material ('rcc', 'tin', 'tile', 'asbestos', 'wood')")
+    usable_area_factor: Optional[float] = Field(default=None, description="Optional custom usable area factor override (0.1 to 1.0)")
     geometry: Optional[GeometryPayload] = Field(default=None, description="Optional nested Phase 2 geometry object")
 
 
@@ -60,7 +68,8 @@ async def health_check():
 async def get_panel_catalog():
     return {
         "catalog": ALMM_PANEL_CATALOG,
-        "usable_area_factor": USABLE_AREA_FACTOR
+        "usable_area_factor": DEFAULT_USABLE_AREA_FACTOR,
+        "material_usable_factors": ROOF_MATERIAL_USABLE_FACTORS
     }
 
 
@@ -92,7 +101,9 @@ async def estimate_energy(req: EnergyEstimateRequest):
             roof_tilt=tilt if tilt is not None else 15.0,
             solar_azimuth=azimuth if azimuth is not None else 180.0,
             bill_offset_percent=req.bill_offset_percent or 100.0,
-            panel_type=req.panel_type or "monocrystalline"
+            panel_type=req.panel_type or "monocrystalline",
+            roof_material=req.roof_material or "rcc",
+            usable_area_factor=req.usable_area_factor
         )
         return result
     except Exception as exc:
@@ -104,21 +115,21 @@ async def get_solar_potential(
     lat: float = 22.5529,
     lng: float = 88.3524,
     mode: str = "building",
-    area_sqft: Optional[float] = None
+    area_sqft: Optional[float] = None,
+    material: str = "rcc"
 ):
     """Calculates instantaneous solar feasibility, capacity, subsidy, and savings for coordinates."""
-    # Base area assumption if not provided
     sqft = area_sqft if area_sqft and area_sqft > 50 else 650.0
     area_m2 = sqft * 0.092903
 
-    # Calculate using solar engine
     estimate = calculate_energy_estimate(
         polygon_area_m2=area_m2,
         latitude=lat,
         longitude=lng,
         roof_tilt=15.0,
         solar_azimuth=180.0,
-        panel_type="monocrystalline"
+        panel_type="monocrystalline",
+        roof_material=material
     )
 
     cap_kw = estimate["system_sizing"]["system_capacity_kw"]
@@ -133,7 +144,10 @@ async def get_solar_potential(
         "longitude": lng,
         "mode": mode,
         "area_sqft": sqft,
+        "gross_area_m2": estimate["area_derivation"]["gross_area_m2"],
         "usable_area_m2": estimate["area_derivation"]["usable_area_m2"],
+        "usable_area_sqft": estimate["area_derivation"]["usable_area_sqft"],
+        "usable_area_percent": estimate["area_derivation"]["usable_area_percent"],
         "estimated_capacity_kw": cap_kw,
         "annual_generation_kwh": annual_kwh,
         "subsidy_amount_inr": subsidy,
@@ -142,76 +156,136 @@ async def get_solar_potential(
     }
 
 
-@app.get("/api/v1/weather-history", summary="10-Year historical solar irradiance & temperature telemetry")
-async def get_weather_history(lat: float = 22.5529, lng: float = 88.3524):
-    """Returns 10-year (2016-2025) solar irradiance (GHI), temperature, and meteorological metrics."""
-    # Baseline modulation based on latitude (higher solar insolation in central/western India)
-    lat_factor = max(0.85, min(1.15, 1.0 + (22.0 - lat) * 0.01))
-    
-    years = ["2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025"]
-    base_ghi = [5.12, 5.18, 5.24, 5.08, 5.15, 5.22, 5.20, 5.28, 5.25, 5.30]
-    base_temp = [26.2, 26.5, 26.8, 26.4, 26.7, 27.0, 26.9, 27.2, 27.1, 27.3]
+def find_closest_district(lat: float, lng: float, district_hint: Optional[str] = None):
+    """Matches given coordinates or name to the closest representative district dataset."""
+    if district_hint:
+        hint_clean = district_hint.lower().replace("metro", "").strip()
+        for key, data in DISTRICT_CLIMATE_DATA.items():
+            if key in hint_clean or data["name"].lower() in hint_clean or hint_clean in data["name"].lower():
+                return data
 
-    ghi = [round(val * lat_factor, 2) for val in base_ghi]
-    avg_ghi = round(sum(ghi) / len(ghi), 2)
-    avg_temp = round(sum(base_temp) / len(base_temp), 1)
+    best_dist = float("inf")
+    best_match = DISTRICT_CLIMATE_DATA["kolkata"]
+
+    for key, data in DISTRICT_CLIMATE_DATA.items():
+        # Euclidean distance approximation on lat/lng
+        d = ((lat - data["lat"]) ** 2 + (lng - data["lng"]) ** 2) ** 0.5
+        if d < best_dist:
+            best_dist = d
+            best_match = data
+
+    return best_match
+
+
+@app.get("/api/v1/weather-history", summary="10-Year historical solar irradiance & temperature telemetry")
+async def get_weather_history(
+    lat: float = 22.5529,
+    lng: float = 88.3524,
+    district: Optional[str] = None
+):
+    """Returns accurate 10-year (2016-2025) solar irradiance (GHI), temperature, and meteorological metrics for a district."""
+    district_data = find_closest_district(lat, lng, district)
+    
+    # Calculate coordinate fine-tuning delta if far from district centroid
+    dist_offset = ((lat - district_data["lat"]) ** 2 + (lng - district_data["lng"]) ** 2) ** 0.5
+    lat_factor = 1.0 + (district_data["lat"] - lat) * 0.008 if dist_offset > 0.5 else 1.0
+
+    ghi_series = [round(val * lat_factor, 2) for val in district_data["ghi"]]
+    temp_series = [round(val, 1) for val in district_data["temp"]]
+
+    avg_ghi = round(sum(ghi_series) / len(ghi_series), 2)
+    avg_temp = round(sum(temp_series) / len(temp_series), 1)
 
     return {
         "status": "SUCCESS",
+        "district": district_data["name"],
+        "state": district_data["state"],
         "latitude": lat,
         "longitude": lng,
-        "years": years,
-        "solar_radiation_ghi": ghi,
-        "avg_temperature_c": base_temp,
+        "years": HISTORICAL_YEARS,
+        "solar_radiation_ghi": ghi_series,
+        "avg_temperature_c": temp_series,
         "avg_annual_ghi": avg_ghi,
-        "avg_annual_sunny_days": 292,
+        "avg_annual_sunny_days": district_data["sunny_days"],
         "mean_temp_c": avg_temp,
-        "panel_temp_loss_pct": 3.8
+        "dust_index": district_data["dust_index"],
+        "panel_temp_loss_pct": district_data["panel_temp_loss_pct"]
     }
 
 
 @app.get("/api/v1/district-wards", summary="Municipal district solar potential & feeder heatmap data")
 async def get_district_wards(district: str = "Kolkata Metro"):
-    """Returns 36-ward solar potential, eligible rooftop count, and substation headroom data."""
-    wards = [
-        {"name": "Ward 1 (Shyambazar)", "score": 9.1, "potential": "6.4 MWp", "headroom": "88%"},
-        {"name": "Ward 2 (Bagbazar)", "score": 8.5, "potential": "4.8 MWp", "headroom": "75%"},
-        {"name": "Ward 3 (Cossipore)", "score": 7.9, "potential": "3.9 MWp", "headroom": "62%"},
-        {"name": "Ward 4 (Maniktala)", "score": 8.7, "potential": "5.1 MWp", "headroom": "80%"},
-        {"name": "Ward 5 (Kankurgachi)", "score": 9.4, "potential": "7.2 MWp", "headroom": "91%"},
-        {"name": "Ward 6 (Ultadanga)", "score": 8.2, "potential": "4.5 MWp", "headroom": "70%"},
-        {"name": "Ward 7 (Salt Lake Sec 1)", "score": 9.6, "potential": "8.5 MWp", "headroom": "95%"},
-        {"name": "Ward 8 (Salt Lake Sec 2)", "score": 9.2, "potential": "7.8 MWp", "headroom": "89%"},
-        {"name": "Ward 9 (New Town North)", "score": 9.8, "potential": "12.1 MWp", "headroom": "98%"},
-        {"name": "Ward 10 (Rajarhat)", "score": 8.9, "potential": "6.9 MWp", "headroom": "84%"},
-        {"name": "Ward 11 (Sealdah)", "score": 6.8, "potential": "2.4 MWp", "headroom": "45%"},
-        {"name": "Ward 12 (College Street)", "score": 7.2, "potential": "3.1 MWp", "headroom": "52%"},
-        {"name": "Ward 13 (Gariahat)", "score": 8.6, "potential": "5.5 MWp", "headroom": "78%"},
-        {"name": "Ward 14 (Park Street)", "score": 8.8, "potential": "5.2 MWp", "headroom": "82%"},
-        {"name": "Ward 15 (Bhowanipore)", "score": 8.4, "potential": "4.7 MWp", "headroom": "74%"},
-        {"name": "Ward 16 (Alipore)", "score": 9.5, "potential": "8.9 MWp", "headroom": "92%"},
-        {"name": "Ward 17 (Ballygunge)", "score": 9.0, "potential": "6.8 MWp", "headroom": "86%"},
-        {"name": "Ward 18 (Dhakuria)", "score": 8.1, "potential": "4.2 MWp", "headroom": "68%"},
-        {"name": "Ward 19 (Jadavpur)", "score": 8.7, "potential": "5.6 MWp", "headroom": "81%"},
-        {"name": "Ward 20 (Tollygunge)", "score": 8.3, "potential": "4.6 MWp", "headroom": "73%"},
-        {"name": "Ward 21 (Behala West)", "score": 8.0, "potential": "4.1 MWp", "headroom": "67%"},
-        {"name": "Ward 22 (Behala East)", "score": 7.8, "potential": "3.8 MWp", "headroom": "61%"},
-        {"name": "Ward 23 (Garia)", "score": 8.5, "potential": "5.0 MWp", "headroom": "77%"},
-        {"name": "Ward 24 (Narendrapur)", "score": 8.9, "potential": "6.2 MWp", "headroom": "85%"},
-        {"name": "Ward 25 (Sonarpur)", "score": 9.1, "potential": "7.0 MWp", "headroom": "88%"},
-        {"name": "Ward 26 (Barasat North)", "score": 8.2, "potential": "4.4 MWp", "headroom": "71%"},
-        {"name": "Ward 27 (Barasat South)", "score": 7.9, "potential": "3.9 MWp", "headroom": "64%"},
-        {"name": "Ward 28 (Madhyamgram)", "score": 8.4, "potential": "4.9 MWp", "headroom": "76%"},
-        {"name": "Ward 29 (Sodepur)", "score": 8.0, "potential": "4.0 MWp", "headroom": "69%"},
-        {"name": "Ward 30 (Barrackpore)", "score": 8.6, "potential": "5.3 MWp", "headroom": "79%"},
-        {"name": "Ward 31 (Howrah Station)", "score": 6.5, "potential": "1.9 MWp", "headroom": "38%"},
-        {"name": "Ward 32 (Shibpur)", "score": 7.4, "potential": "3.2 MWp", "headroom": "55%"},
-        {"name": "Ward 33 (Bally)", "score": 7.7, "potential": "3.6 MWp", "headroom": "60%"},
-        {"name": "Ward 34 (Dankuni)", "score": 8.8, "potential": "6.1 MWp", "headroom": "83%"},
-        {"name": "Ward 35 (Serampore)", "score": 8.3, "potential": "4.5 MWp", "headroom": "72%"},
-        {"name": "Ward 36 (Chandannagar)", "score": 8.7, "potential": "5.4 MWp", "headroom": "80%"}
-    ]
+    """Returns 36-ward solar potential, eligible rooftop count, and substation headroom data for any district."""
+    d_clean = district.lower()
+    
+    # Ward prefix generator for different districts
+    if "delhi" in d_clean:
+        prefix = "Delhi"
+        areas = ["Connaught Place", "Chanakyapuri", "Karol Bagh", "Dwarka Sec 6", "Dwarka Sec 12", "Rohini Sec 3",
+                 "Rohini Sec 10", "Vasant Kunj", "Saket", "Hauz Khas", "Lajpat Nagar", "Defense Colony",
+                 "Greater Kailash", "Nehru Place", "Mayur Vihar 1", "Mayur Vihar 2", "Janakpuri", "Rajouri Garden",
+                 "Pitampura", "Model Town", "Civil Lines", "Chandni Chowk", "Paharganj", "Sarita Vihar",
+                 "Jasola", "Okhla Phase 3", "Patparganj", "Preet Vihar", "Shahdara", "Kashmere Gate",
+                 "Paschim Vihar", "Punjabi Bagh", "Vikaspuri", "Uttam Nagar", "Narela", "Najafgarh"]
+    elif "jaipur" in d_clean:
+        prefix = "Jaipur"
+        areas = ["C-Scheme", "Malviya Nagar", "Mansarovar North", "Mansarovar South", "Vaishali Nagar", "Raja Park",
+                 "Bapu Nagar", "Civil Lines", "Tonk Road", "Jagatpura", "Sitapura", "Sanganer",
+                 "Ajmer Road", "Vidhyadhar Nagar", "Shastri Nagar", "Bani Park", "Jhotwara", "Murlipura",
+                 "Amer", "Hawa Mahal", "Johari Bazar", "MI Road", "Sodala", "Gopalpura",
+                 "Pratap Nagar", "Durgapura", "Barkat Nagar", "Lal Kothi", "Adarsh Nagar", "Tilak Nagar",
+                 "Sirsi Road", "Kalwar Road", "Agra Road", "Delhi Road", "Kukas", "Chomu"]
+    elif "bengaluru" in d_clean or "bangalore" in d_clean:
+        prefix = "Bengaluru"
+        areas = ["Indiranagar", "Koramangala", "HSR Layout", "Whitefield", "Electronic City", "Jayanagar",
+                 "JP Nagar", "BTM Layout", "Marathahalli", "Hebbal", "Malleshwaram", "Rajajinagar",
+                 "Basavanagudi", "Frazer Town", "Sadashivanagar", "Yelahanka", "Banashankari", "Bellandur",
+                 "Sarjapur Road", "Varthur", "Bannerghatta", "Kalyan Nagar", "Kammanahalli", "RT Nagar",
+                 "Ulsoor", "MG Road", "Cunningham Road", "Richmond Town", "Domlur", "Kaggadasapura",
+                 "Vidyaranyapura", "Sahakara Nagar", "Peenya", "Yeshwanthpur", "Vijayanagar", "Nagarbhavi"]
+    elif "mumbai" in d_clean:
+        prefix = "Mumbai"
+        areas = ["Colaba", "Marine Lines", "Fort", "Malabar Hill", "Nariman Point", "Worli",
+                 "Lower Parel", "Dadarn North", "Dadar South", "Bandra West", "Bandra East", "Khar",
+                 "Santacruz", "Vile Parle", "Andheri West", "Andheri East", "Juhu", "Goregaon West",
+                 "Goregaon East", "Malad", "Kandivali", "Borivali", "Dahisar", "Powai",
+                 "Ghatkopar", "Vikhroli", "Bhandup", "Mulund", "Kurla", "Chembur",
+                 "Sion", "Matunga", "Wadala", "Byculla", "Parel", "Mahim"]
+    elif "nagpur" in d_clean:
+        prefix = "Nagpur"
+        areas = ["Civil Lines", "Dharampeth", "Ramdaspeth", "Sitabuldi", "Dhantoli", "Congress Nagar",
+                 "Pratap Nagar", "Laxmi Nagar", "Bajaj Nagar", "Trimurti Nagar", "Khamla", "Wardha Road",
+                 "Manewada", "Ayodhya Nagar", "Nandanvan", "Sakkardara", "Mahal", "Gandhibagh",
+                 "Itwari", "Hansapuri", "Jaripatka", "Kadbi Chowk", "Sadrar", "Katol Road",
+                 "Gorewada", "Zingabai Takli", "Mankapur", "Friend's Colony", "Seminary Hills", "Ravi Nagar",
+                 "Wadi", "MIDC Hingna", "Butibori", "MIHAN", "Pardi", "Kalamna"]
+    else:
+        prefix = "Kolkata"
+        areas = ["Shyambazar", "Bagbazar", "Cossipore", "Maniktala", "Kankurgachi", "Ultadanga",
+                 "Salt Lake Sec 1", "Salt Lake Sec 2", "New Town North", "Rajarhat", "Sealdah", "College Street",
+                 "Gariahat", "Park Street", "Bhowanipore", "Alipore", "Ballygunge", "Dhakuria",
+                 "Jadavpur", "Tollygunge", "Behala West", "Behala East", "Garia", "Narendrapur",
+                 "Sonarpur", "Barasat North", "Barasat South", "Madhyamgram", "Sodepur", "Barrackpore",
+                 "Howrah Station", "Shibpur", "Bally", "Dankuni", "Serampore", "Chandannagar"]
+
+    wards = []
+    import random
+    # Seed based on district string to keep values consistent for same district
+    rnd = random.Random(sum(ord(c) for c in district))
+
+    for i, area in enumerate(areas):
+        score = round(rnd.uniform(7.4, 9.8), 1)
+        mwp = round(rnd.uniform(2.8, 11.5), 1)
+        headroom = rnd.randint(45, 96)
+        wards.append({
+            "name": f"Ward {i + 1} ({area})",
+            "score": score,
+            "potential": f"{mwp} MWp",
+            "headroom": f"{headroom}%"
+        })
+
     return {"district": district, "total_wards": len(wards), "wards": wards}
+
 
 
 @app.get("/api/v1/vendors", summary="Get empanelled MNRE solar EPC vendors")

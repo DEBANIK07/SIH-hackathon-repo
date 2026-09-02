@@ -360,6 +360,12 @@ class OJASMapController {
     }
   }
 
+  getMaterialUsableFactor() {
+    const mat = document.getElementById('inputMaterial')?.value || 'rcc';
+    const factors = { rcc: 0.75, tin: 0.80, tile: 0.65, asbestos: 0.70, wood: 0.60 };
+    return factors[mat] || 0.75;
+  }
+
   calculateArea() {
     if (this.drawPoints.length < 3) {
       alert('Please place at least 3 points on the map to define a roof polygon.');
@@ -367,26 +373,38 @@ class OJASMapController {
     }
 
     try {
-      let areaSqm = 0;
+      let grossSqm = 0;
       const closedPoints = [...this.drawPoints, this.drawPoints[0]];
 
       if (typeof turf !== 'undefined' && turf.polygon && turf.area) {
         const polyFeature = turf.polygon([closedPoints]);
-        areaSqm = turf.area(polyFeature);
+        grossSqm = turf.area(polyFeature);
       } else {
-        areaSqm = this.calculatePlanarArea(closedPoints);
+        grossSqm = this.calculatePlanarArea(closedPoints);
       }
 
-      const areaSqft = areaSqm * 10.7639;
-      this.calculatedArea = { sqm: areaSqm, sqft: areaSqft };
+      const usableFactor = this.getMaterialUsableFactor();
+      const usableSqm = grossSqm * usableFactor;
+      const grossSqft = grossSqm * 10.7639;
+      const usableSqft = usableSqm * 10.7639;
+
+      this.calculatedArea = {
+        grossSqm: parseFloat(grossSqm.toFixed(2)),
+        usableSqm: parseFloat(usableSqm.toFixed(2)),
+        grossSqft: parseFloat(grossSqft.toFixed(1)),
+        usableSqft: parseFloat(usableSqft.toFixed(1)),
+        usableFactor: usableFactor,
+        sqm: parseFloat(usableSqm.toFixed(2)),
+        sqft: parseFloat(usableSqft.toFixed(1))
+      };
 
       // Render closed filled polygon
       this.updateDrawingOverlay();
 
-      // Display area result
+      // Display area result with clear usable vs gross distinction
       const areaTextEl = document.getElementById('roof-area-text');
       if (areaTextEl) {
-        areaTextEl.innerText = `${areaSqm.toFixed(1)} m² (${Math.round(areaSqft).toLocaleString('en-IN')} ft²)`;
+        areaTextEl.innerHTML = `<span class="text-amber-400 font-bold">${usableSqm.toFixed(1)} m²</span> <span class="text-slate-300">usable</span> <span class="text-slate-500">(${Math.round(usableSqft).toLocaleString('en-IN')} ft²)</span> <span class="text-slate-500 text-[10px]">| Gross: ${grossSqm.toFixed(1)} m² (${Math.round(usableFactor * 100)}%)</span>`;
       }
 
       const useBtn = document.getElementById('btn-use-roof');
@@ -395,7 +413,7 @@ class OJASMapController {
       }
 
       if (window.StatusLog) {
-        window.StatusLog.log(`Geodesic Rooftop Area computed: ${areaSqm.toFixed(1)} m² (${Math.round(areaSqft)} sq ft)`, 'SUCCESS', 'TURF');
+        window.StatusLog.log(`Geodesic Roof Area: ${grossSqm.toFixed(1)} m² Gross → ${usableSqm.toFixed(1)} m² Usable (${Math.round(usableSqft)} sq ft @ ${Math.round(usableFactor * 100)}% utilization)`, 'SUCCESS', 'TURF');
       }
 
     } catch (err) {
@@ -443,25 +461,30 @@ class OJASMapController {
     if (useBtn) {
       useBtn.setAttribute('disabled', 'true');
       useBtn.classList.add('confirmed');
-      useBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>✓ Roof Area Applied</span>';
+      useBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>✓ Usable Roof Applied</span>';
     }
 
     const mapContainer = document.getElementById('gisMap') || document.getElementById('map-view');
     if (mapContainer) mapContainer.style.cursor = '';
 
-    // Auto-populate the Solar Install Area field in sq ft
+    // Auto-populate both Gross House Area and Usable Solar Installation Area
+    const houseAreaInput = document.getElementById('inputHouseArea');
+    if (houseAreaInput && this.calculatedArea.grossSqft) {
+      houseAreaInput.value = Math.round(this.calculatedArea.grossSqft);
+    }
+
     const solarAreaInput = document.getElementById('inputSolarArea');
     if (solarAreaInput) {
-      solarAreaInput.value = Math.round(this.calculatedArea.sqft);
+      solarAreaInput.value = Math.round(this.calculatedArea.usableSqft);
     }
 
-    // Update telemetry bar
+    // Update telemetry bar usable area
     const teleArea = document.getElementById('teleArea');
     if (teleArea) {
-      teleArea.innerText = `${this.calculatedArea.sqm.toFixed(1)} m²`;
+      teleArea.innerText = `${this.calculatedArea.usableSqm.toFixed(1)} m²`;
     }
 
-    // Trigger full estimation update
+    // Trigger full financial & system estimation update
     if (typeof calculateEstimation === 'function') {
       calculateEstimation();
     }
@@ -477,7 +500,7 @@ class OJASMapController {
 
     if (window.StatusLog) {
       window.StatusLog.log(
-        `✓ Rooftop area applied: ${this.calculatedArea.sqm.toFixed(1)} m² (${Math.round(this.calculatedArea.sqft)} sq ft). Solar parameters re-estimated.`,
+        `✓ Usable area applied: ${this.calculatedArea.usableSqm.toFixed(1)} m² (${Math.round(this.calculatedArea.usableSqft)} sq ft). Gross: ${this.calculatedArea.grossSqm.toFixed(1)} m². Solar recalculation complete.`,
         'SUCCESS',
         'SURVEY'
       );
@@ -493,17 +516,28 @@ class OJASMapController {
 
   updateTelemetry() {
     const solarArea = parseFloat(document.getElementById('inputSolarArea')?.value) || 650;
+    const mat = document.getElementById('inputMaterial')?.value || 'rcc';
     const areaSqM = (solarArea * 0.092903).toFixed(1);
-    const recCap = (solarArea / 170).toFixed(1);
+    const recCap = (solarArea / 130).toFixed(1); // Standard ~130 sq ft of usable area per kWp
 
     const teleArea = document.getElementById('teleArea');
     const teleCap = document.getElementById('teleCap');
 
     if (teleArea) teleArea.innerText = `${areaSqM} m²`;
-    if (teleCap) teleCap.innerText = `${recCap} kWp`;
+    if (teleCap) teleCap.innerText = `${Math.max(1.0, parseFloat(recCap))} kWp`;
+
+    const coordEl = document.getElementById('scanCoordText');
+    if (coordEl) {
+      coordEl.innerText = `GEO-SAT / LAT: ${this.currentLat.toFixed(4)}° N, LON: ${this.currentLng.toFixed(4)}° E`;
+    }
   }
 
   reverseGeocodeCoordinates(lat, lng) {
+    const coordEl = document.getElementById('scanCoordText');
+    if (coordEl) {
+      coordEl.innerText = `GEO-SAT / LAT: ${lat.toFixed(4)}° N, LON: ${lng.toFixed(4)}° E`;
+    }
+
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
       .then(res => res.json())
       .then(data => {
@@ -512,9 +546,22 @@ class OJASMapController {
           if (input) {
             input.value = data.display_name.split(',').slice(0, 4).join(',');
           }
+
+          // Extract District / City / County name
+          const addr = data.address || {};
+          const districtName = addr.state_district || addr.district || addr.county || addr.city || addr.town || addr.state || 'Kolkata';
+
+          // Update district 10-year weather telemetry & ward heatmap
+          if (typeof updateDistrictWeather === 'function') {
+            updateDistrictWeather(lat, lng, districtName);
+          }
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (typeof updateDistrictWeather === 'function') {
+          updateDistrictWeather(lat, lng);
+        }
+      });
   }
 }
 

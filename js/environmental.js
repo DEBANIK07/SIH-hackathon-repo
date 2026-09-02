@@ -155,6 +155,11 @@ class OJASEnvironmentalService {
     // Render / update Environmental Data UI card on assessment page
     this.updateUI(fullPayload);
 
+    // Update 10-year weather telemetry for exact polygon centroid
+    if (typeof window.updateDistrictWeather === 'function') {
+      window.updateDistrictWeather(geometry.centroidLat, geometry.centroidLng);
+    }
+
     return fullPayload;
   }
 

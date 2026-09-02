@@ -18,7 +18,8 @@ except ImportError:
     PVLIB_AVAILABLE = False
 
 from backend.config import (
-    USABLE_AREA_FACTOR,
+    DEFAULT_USABLE_AREA_FACTOR,
+    ROOF_MATERIAL_USABLE_FACTORS,
     DEFAULT_PANEL_AREA_M2,
     DEFAULT_PANEL_WATTAGE,
     GRID_CO2_FACTOR_KG_KWH,
@@ -26,6 +27,9 @@ from backend.config import (
     DEFAULT_SYSTEM_DERATE,
     ALMM_PANEL_CATALOG
 )
+
+# Backwards compatibility alias
+USABLE_AREA_FACTOR = DEFAULT_USABLE_AREA_FACTOR
 
 
 def calculate_energy_estimate(
@@ -36,12 +40,14 @@ def calculate_energy_estimate(
     roof_tilt: float = 15.0,
     solar_azimuth: float = 180.0,
     bill_offset_percent: float = 100.0,
-    panel_type: str = "monocrystalline"
+    panel_type: str = "monocrystalline",
+    roof_material: str = "rcc",
+    usable_area_factor: float = None
 ) -> Dict[str, Any]:
     """
     Computes usable rooftop area, system capacity, and runs PVLib physical solar yield simulation.
 
-    :param polygon_area_m2: Total polygon area in square meters
+    :param polygon_area_m2: Total polygon area in square meters (Gross Area)
     :param latitude: Centroid latitude (degrees N)
     :param longitude: Centroid longitude (degrees E)
     :param elevation_m: Terrain elevation in meters ASL
@@ -49,13 +55,24 @@ def calculate_energy_estimate(
     :param solar_azimuth: Roof solar facing azimuth (degrees, 180° = South)
     :param bill_offset_percent: User-adjustable bill offset slider (0-100%)
     :param panel_type: User-selected ALMM panel type key
+    :param roof_material: Roof construction material ('rcc', 'tin', 'tile', 'asbestos', 'wood')
+    :param usable_area_factor: Optional direct override of usable factor (0.1 to 1.0)
     :returns: Comprehensive energy calculation result dictionary
     """
     # --------------------------------------------------------------------------
-    # Step 1: Usable Rooftop Area Calculation
+    # Step 1: Usable Rooftop Area Calculation with Material-Specific Derating
     # --------------------------------------------------------------------------
     polygon_area_m2 = max(1.0, float(polygon_area_m2))
-    usable_area_m2 = round(polygon_area_m2 * USABLE_AREA_FACTOR, 2)
+    
+    mat_key = str(roof_material).lower().strip()
+    if usable_area_factor is not None and 0.1 <= float(usable_area_factor) <= 1.0:
+        factor = float(usable_area_factor)
+    else:
+        factor = ROOF_MATERIAL_USABLE_FACTORS.get(mat_key, DEFAULT_USABLE_AREA_FACTOR)
+
+    usable_area_m2 = round(polygon_area_m2 * factor, 2)
+    gross_area_sqft = round(polygon_area_m2 * 10.7639, 1)
+    usable_area_sqft = round(usable_area_m2 * 10.7639, 1)
 
     # --------------------------------------------------------------------------
     # Step 2: System Size (kWp) & Panel Layout Derivation
@@ -176,12 +193,17 @@ def calculate_energy_estimate(
             "roof_tilt": tilt,
             "solar_azimuth": azimuth,
             "bill_offset_percent": bill_offset_percent,
-            "panel_type": panel_key
+            "panel_type": panel_key,
+            "roof_material": mat_key
         },
         "area_derivation": {
-            "usable_area_factor": USABLE_AREA_FACTOR,
+            "gross_area_m2": polygon_area_m2,
             "usable_area_m2": usable_area_m2,
-            "perimeter_keepout_factor_percent": round((1.0 - USABLE_AREA_FACTOR) * 100, 1)
+            "gross_area_sqft": gross_area_sqft,
+            "usable_area_sqft": usable_area_sqft,
+            "usable_area_factor": factor,
+            "usable_area_percent": round(factor * 100, 1),
+            "perimeter_keepout_factor_percent": round((1.0 - factor) * 100, 1)
         },
         "system_sizing": {
             "panel_name": panel_spec["name"],
