@@ -22,7 +22,7 @@ const translations = {
     hero_desc: "Enter your exact home address, trace your rooftop with high-precision satellite imagery, estimate complete solar investment with Govt subsidies, and inspect past 10-year solar weather trends.",
     input_title: "1. Property & Installation Parameters",
     label_location: "Exact House Address / Landmark",
-    label_house_area: "Total House Area (sq ft)",
+    label_house_area: "Total Rooftop Area (sq ft)",
     label_solar_area: "Solar Install Area (sq ft)",
     label_roof_width: "Roof Width (ft)",
     label_electricity: "Monthly Usage (kWh / Units)",
