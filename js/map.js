@@ -459,7 +459,7 @@ class OJASMapController {
     const mapContainer = document.getElementById('gisMap') || document.getElementById('map-view');
     if (mapContainer) mapContainer.style.cursor = '';
 
-    // Auto-populate both Gross House Area and Usable Solar Installation Area
+    // Auto-populate both Gross Rooftop Area and Usable Solar Installation Area
     const houseAreaInput = document.getElementById('inputHouseArea');
     if (houseAreaInput && this.calculatedArea.grossSqft) {
       houseAreaInput.value = Math.round(this.calculatedArea.grossSqft);
