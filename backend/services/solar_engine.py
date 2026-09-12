@@ -94,7 +94,7 @@ def calculate_energy_estimate(
         system_capacity_kw = round(panel_wattage_w / 1000.0, 2)
 
     # --------------------------------------------------------------------------
-    # Step 3: PVLib Physical Solar Simulation
+    # Step 3: Phase 3 Generation Formula using 5-Year Weather Data
     # --------------------------------------------------------------------------
     lat = float(latitude)
     lng = float(longitude)
@@ -102,64 +102,23 @@ def calculate_energy_estimate(
     tilt = float(roof_tilt)
     azimuth = float(solar_azimuth)
 
-    if PVLIB_AVAILABLE:
-        try:
-            # Hourly timeseries for a representative annual simulation (8,760 hours)
-            times = pd.date_range("2026-01-01 00:00", "2026-12-31 23:00", freq="1h", tz="Asia/Kolkata")
-            location = Location(lat, lng, altitude=elev, name="OJAS Location")
+    avg_ghi_kwh_m2_day = 5.14  # Default fallback
+    try:
+        from backend.services.weather_service import get_weather_history_data
+        w_data = get_weather_history_data(lat, lng)
+        if "calculation_input" in w_data and "avg_ghi_kwh_m2_day" in w_data["calculation_input"]:
+            avg_ghi_kwh_m2_day = float(w_data["calculation_input"]["avg_ghi_kwh_m2_day"])
+    except Exception:
+        pass
 
-            # Solar astronomical position
-            solpos = get_solarposition(times, location.latitude, location.longitude, altitude=location.altitude)
-            
-            # Clear sky irradiance (Ineichen model)
-            clearsky = ineichen(times, location.latitude, location.longitude, altitude=location.altitude)
+    SUN_HOURS_EQUIVALENT = avg_ghi_kwh_m2_day  # kWh/m²/day numerically equals peak sun hours
+    PERFORMANCE_RATIO = 0.75
 
-            # Plane-of-Array (POA) irradiance
-            poa = get_total_irradiance(
-                surface_tilt=tilt,
-                surface_azimuth=azimuth,
-                dni=clearsky["dni"],
-                ghi=clearsky["ghi"],
-                dhi=clearsky["dhi"],
-                solar_zenith=solpos["zenith"],
-                solar_azimuth=solpos["azimuth"]
-            )
+    daily_generation_kwh = system_capacity_kw * SUN_HOURS_EQUIVALENT * PERFORMANCE_RATIO
+    annual_generation_kwh = round(daily_generation_kwh * 365, 1)
 
-            # SAPM cell temperature model (roof-mounted open rack)
-            cell_temp = sapm_cell(
-                poa_global=poa["poa_global"],
-                temp_air=27.0,  # Average ambient temperature in India
-                wind_speed=2.5,
-                a=-3.47,
-                b=-0.0594,
-                deltaT=3
-            )
-
-            # Temperature derate multiplier (reference 25°C)
-            temp_derate = 1.0 + (panel_temp_coeff * (cell_temp - 25.0))
-            temp_derate = temp_derate.clip(lower=0.7, upper=1.05)
-
-            # Hourly power generation (kW)
-            hourly_kw = (poa["poa_global"] / 1000.0) * system_capacity_kw * temp_derate * DEFAULT_SYSTEM_DERATE
-            hourly_kw = hourly_kw.clip(lower=0.0)
-
-            # Monthly aggregation
-            df = pd.DataFrame({"ac_power_kw": hourly_kw}, index=times)
-            monthly_kwh_series = df["ac_power_kw"].resample("M").sum()
-            
-            monthly_kwh = [round(val, 1) for val in monthly_kwh_series.tolist()]
-            annual_generation_kwh = round(sum(monthly_kwh), 1)
-
-        except Exception as exc:
-            # Robust mathematical fallback if numerical solver hits bounds
-            annual_generation_kwh = round(system_capacity_kw * 1450.0, 1)
-            base_monthly = annual_generation_kwh / 12.0
-            monthly_kwh = [round(base_monthly * factor, 1) for factor in [1.05, 1.10, 1.15, 1.12, 0.95, 0.75, 0.70, 0.75, 0.85, 1.05, 1.10, 1.08]]
-    else:
-        # High-precision mathematical modeling (1450 kWh/kWp/year Indian benchmark)
-        annual_generation_kwh = round(system_capacity_kw * 1450.0, 1)
-        base_monthly = annual_generation_kwh / 12.0
-        monthly_kwh = [round(base_monthly * factor, 1) for factor in [1.05, 1.10, 1.15, 1.12, 0.95, 0.75, 0.70, 0.75, 0.85, 1.05, 1.10, 1.08]]
+    base_monthly = annual_generation_kwh / 12.0
+    monthly_kwh = [round(base_monthly * factor, 1) for factor in [1.05, 1.10, 1.15, 1.12, 0.95, 0.75, 0.70, 0.75, 0.85, 1.05, 1.10, 1.08]]
 
     # --------------------------------------------------------------------------
     # Step 4: Bill Offset & Financial / Environmental Impact Metrics

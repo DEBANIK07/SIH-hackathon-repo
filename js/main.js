@@ -588,16 +588,6 @@ function selectSuggestion(lat, lon, displayName) {
 
   calculateEstimation();
   updateDistrictWeather(latitude, longitude, displayName);
-
-  const statusText = document.getElementById('addressStatusText');
-  if (statusText) {
-    statusText.className = "text-emerald-400 flex items-center gap-1 text-[11px] font-mono";
-    statusText.innerHTML = `<i class="fa-solid fa-circle-check"></i> Rooftop Pinpointed: ${latitude.toFixed(4)}° N, ${longitude.toFixed(4)}° E`;
-  }
-
-  if (window.StatusLog) {
-    window.StatusLog.log(`Location selected: ${displayName.split(',').slice(0, 3).join(',')} (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`, 'SUCCESS', 'GEOCODE');
-  }
 }
 
 function hideSuggestions() {
@@ -724,6 +714,55 @@ function triggerGeospatialScan() {
     }
   }, 800);
 }
+
+async function loadWeatherHistory(lat, lon) {
+  if (window.logStatus) window.logStatus('Fetching 10-year weather history...', 'pending');
+  try {
+    const res = await fetch(`http://localhost:8000/api/weather-history?lat=${lat}&lon=${lon}`);
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    const data = await res.json();
+    if (window.logStatus) window.logStatus(`Weather data ready — using ${data.calculation_input.years_used} average`, 'success');
+    renderVariationChart(data.yearly_variation);
+    return data.calculation_input;
+  } catch (err) {
+    if (window.logStatus) window.logStatus(`Weather fetch failed — ${err.message}`, 'error');
+    return null;
+  }
+}
+
+function renderVariationChart(yearlyData) {
+  const canvas = document.getElementById('weatherChart');
+  if (!canvas) return;
+
+  const existingChart = Chart.getChart(canvas);
+  if (existingChart) {
+    existingChart.destroy();
+  }
+
+  weatherChartInstance = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: yearlyData.map(d => d.year),
+      datasets: [{
+        label: 'Avg solar irradiance (kWh/m²/day)',
+        data: yearlyData.map(d => d.avg_ghi_kwh_m2_day),
+        borderColor: '#E8A33D',
+        backgroundColor: '#E8A33D22',
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { title: { display: true, text: '10-year solar irradiance trend for this location' } },
+      scales: { y: { title: { display: true, text: 'kWh/m²/day' } } }
+    }
+  });
+}
+
+window.loadWeatherHistory = loadWeatherHistory;
+window.renderVariationChart = renderVariationChart;
 
 /* Material-Specific Usable Rooftop Factors & Financial Estimation Calculation Engine */
 const ROOF_MATERIAL_FACTORS = {
@@ -857,11 +896,23 @@ async function updateDistrictWeather(lat = 22.5529, lng = 88.3524, districtHint 
 
   // Try fetching from backend API
   const apiRes = await fetchAPI(`/api/v1/weather-history?lat=${lat}&lng=${lng}${districtHint ? `&district=${encodeURIComponent(districtHint)}` : ''}`);
+  const d = getDistrictLocalData(lat, lng, districtHint);
+
   if (apiRes.success && apiRes.data && apiRes.data.solar_radiation_ghi) {
-    weatherData = apiRes.data;
+    weatherData = {
+      district: apiRes.data.district || d.name || 'Kolkata',
+      state: apiRes.data.state || d.state || 'INDIA',
+      years: apiRes.data.years || HISTORICAL_YEARS,
+      solar_radiation_ghi: apiRes.data.solar_radiation_ghi,
+      avg_temperature_c: apiRes.data.avg_temperature_c || d.temp,
+      avg_annual_ghi: apiRes.data.avg_annual_ghi ?? (d.ghi ? d.ghi[0] : 5.18),
+      avg_annual_sunny_days: apiRes.data.avg_annual_sunny_days ?? (d.sunny_days || 292),
+      mean_temp_c: apiRes.data.mean_temp_c ?? (d.temp ? d.temp[0] : 26.8),
+      dust_index: apiRes.data.dust_index || d.dust_index || 'Low',
+      panel_temp_loss_pct: apiRes.data.panel_temp_loss_pct || d.panel_temp_loss_pct || 3.9
+    };
   } else {
     // Client-side meteorological calculation
-    const d = getDistrictLocalData(lat, lng, districtHint);
     const distOffset = Math.sqrt(Math.pow(lat - d.lat, 2) + Math.pow(lng - d.lng, 2));
     const latFactor = distOffset > 0.5 ? 1.0 + (d.lat - lat) * 0.008 : 1.0;
 
@@ -871,8 +922,8 @@ async function updateDistrictWeather(lat = 22.5529, lng = 88.3524, districtHint 
     const avgTemp = parseFloat((tempSeries.reduce((a, b) => a + b, 0) / tempSeries.length).toFixed(1));
 
     weatherData = {
-      district: d.name,
-      state: d.state,
+      district: d.name || 'Kolkata',
+      state: d.state || 'INDIA',
       years: HISTORICAL_YEARS,
       solar_radiation_ghi: ghiSeries,
       avg_temperature_c: tempSeries,
@@ -909,10 +960,10 @@ async function updateDistrictWeather(lat = 22.5529, lng = 88.3524, districtHint 
   if (sunnyDaysEl) sunnyDaysEl.innerText = `${weatherData.avg_annual_sunny_days} Days / Year`;
   if (tempEl) tempEl.innerText = `${weatherData.mean_temp_c}°C | ${weatherData.dust_index || 'Low'} Dust`;
   if (tempNoteEl) tempNoteEl.innerText = `Panel Temperature Loss: ~${weatherData.panel_temp_loss_pct}%`;
-  if (districtBadgeEl) districtBadgeEl.innerText = `DISTRICT: ${weatherData.district.toUpperCase()} (${weatherData.state || 'INDIA'})`;
+  if (districtBadgeEl) districtBadgeEl.innerText = `DISTRICT: ${(weatherData.district || 'SURYA-GHAR').toUpperCase()} (${(weatherData.state || 'INDIA').toUpperCase()})`;
 
   // 3. Update District GIS Wards
-  updateDistrictWards(weatherData.district);
+  updateDistrictWards(weatherData.district || 'Kolkata');
 
   if (window.StatusLog) {
     window.StatusLog.log(

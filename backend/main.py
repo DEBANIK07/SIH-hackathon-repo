@@ -4,7 +4,7 @@ Provides RESTful APIs for PVLib Solar Energy Calculation Engine, Geocoding, & En
 """
 
 from typing import Optional, Dict, Any, List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -16,6 +16,15 @@ from backend.config import (
     HISTORICAL_YEARS
 )
 from backend.services.solar_engine import calculate_energy_estimate
+from backend.services.elevation_service import get_elevation
+from backend.services.weather_service import (
+    fetch_weather_history,
+    process_weather_data,
+    five_year_average,
+    ten_year_yearly_breakdown,
+    derive_weather_views,
+    get_weather_history_data
+)
 
 app = FastAPI(
     title="OJAS Solar Energy Calculation Engine",
@@ -177,40 +186,132 @@ def find_closest_district(lat: float, lng: float, district_hint: Optional[str] =
     return best_match
 
 
-@app.get("/api/v1/weather-history", summary="10-Year historical solar irradiance & temperature telemetry")
+@app.get("/api/weather-history", summary="10-Year historical Open-Meteo weather data with 5-year average & 10-year breakdown")
+@app.get("/api/v1/weather-history", summary="10-Year historical Open-Meteo weather data with 5-year average & 10-year breakdown (v1)")
 async def get_weather_history(
-    lat: float = 22.5529,
-    lng: float = 88.3524,
+    lat: float = 21.1458,
+    lon: Optional[float] = None,
+    lng: Optional[float] = None,
     district: Optional[str] = None
 ):
-    """Returns accurate 10-year (2016-2025) solar irradiance (GHI), temperature, and meteorological metrics for a district."""
-    district_data = find_closest_district(lat, lng, district)
-    
-    # Calculate coordinate fine-tuning delta if far from district centroid
-    dist_offset = ((lat - district_data["lat"]) ** 2 + (lng - district_data["lng"]) ** 2) ** 0.5
-    lat_factor = 1.0 + (district_data["lat"] - lat) * 0.008 if dist_offset > 0.5 else 1.0
+    """
+    Fetches 10 years of historical solar/weather data from Open-Meteo Archive API,
+    converts shortwave radiation sum from MJ/m²/day to kWh/m²/day (/3.6),
+    and returns derived 5-year average (for generation calculations)
+    and 10-year yearly breakdown (for frontend variation graphs).
+    """
+    effective_lon = lon if lon is not None else (lng if lng is not None else 79.0882)
+    try:
+        data = get_weather_history_data(lat, effective_lon)
+        return data
+    except Exception as exc:
+        # Fallback to district database if live Open-Meteo API is unreachable
+        district_data = find_closest_district(lat, effective_lon, district)
+        dist_offset = ((lat - district_data["lat"]) ** 2 + (effective_lon - district_data["lng"]) ** 2) ** 0.5
+        lat_factor = 1.0 + (district_data["lat"] - lat) * 0.008 if dist_offset > 0.5 else 1.0
 
-    ghi_series = [round(val * lat_factor, 2) for val in district_data["ghi"]]
-    temp_series = [round(val, 1) for val in district_data["temp"]]
+        ghi_series = [round(val * lat_factor, 2) for val in district_data["ghi"]]
+        temp_series = [round(val, 1) for val in district_data["temp"]]
 
-    avg_ghi = round(sum(ghi_series) / len(ghi_series), 2)
-    avg_temp = round(sum(temp_series) / len(temp_series), 1)
+        avg_ghi = round(sum(ghi_series) / len(ghi_series), 2)
+        avg_temp = round(sum(temp_series) / len(temp_series), 1)
 
-    return {
-        "status": "SUCCESS",
-        "district": district_data["name"],
-        "state": district_data["state"],
-        "latitude": lat,
-        "longitude": lng,
-        "years": HISTORICAL_YEARS,
-        "solar_radiation_ghi": ghi_series,
-        "avg_temperature_c": temp_series,
-        "avg_annual_ghi": avg_ghi,
-        "avg_annual_sunny_days": district_data["sunny_days"],
-        "mean_temp_c": avg_temp,
-        "dust_index": district_data["dust_index"],
-        "panel_temp_loss_pct": district_data["panel_temp_loss_pct"]
-    }
+        years_int = [int(y) for y in HISTORICAL_YEARS]
+        end_yr = years_int[-1]
+        five_yr_ghi = ghi_series[-5:]
+        five_yr_avg_ghi = round(sum(five_yr_ghi) / len(five_yr_ghi), 2)
+        five_yr_temp = temp_series[-5:]
+        five_yr_avg_temp = round(sum(five_yr_temp) / len(five_yr_temp), 1)
+
+        ten_yr_breakdown = []
+        for i, yr in enumerate(years_int):
+            ten_yr_breakdown.append({
+                "year": yr,
+                "annual_ghi_kwh": round(ghi_series[i] * 365.25, 2),
+                "mean_daily_ghi_kwh": round(ghi_series[i], 3),
+                "mean_daily_ghi_mj": round(ghi_series[i] * 3.6, 3),
+                "mean_temp_c": round(temp_series[i], 2),
+                "mean_wind_ms": 2.5,
+                "days_count": 365
+            })
+
+        return {
+            "status": "SUCCESS",
+            "district": district_data["name"],
+            "state": district_data["state"],
+            "latitude": lat,
+            "longitude": effective_lon,
+            "source": "District Dataset Fallback",
+            "five_year_average": {
+                "start_year": end_yr - 4,
+                "end_year": end_yr,
+                "mean_daily_ghi_kwh": round(five_yr_avg_ghi, 3),
+                "mean_daily_ghi_mj": round(five_yr_avg_ghi * 3.6, 3),
+                "annual_ghi_kwh": round(five_yr_avg_ghi * 365.25, 2),
+                "mean_temp_c": five_yr_avg_temp,
+                "mean_wind_ms": 2.5,
+                "monthly_averages": []
+            },
+            "ten_year_breakdown": ten_yr_breakdown,
+            "years": HISTORICAL_YEARS,
+            "solar_radiation_ghi": ghi_series,
+            "avg_temperature_c": temp_series,
+            "avg_annual_ghi": avg_ghi,
+            "avg_annual_sunny_days": district_data["sunny_days"],
+            "mean_temp_c": avg_temp,
+            "dust_index": district_data["dust_index"],
+            "panel_temp_loss_pct": district_data["panel_temp_loss_pct"]
+        }
+
+
+@app.get("/api/v1/environmental-data", summary="Rooftop Environmental & Meteorological Data Pipeline")
+def get_environmental_data(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    bearing: float = Query(...)
+):
+    """Returns 10-year meteorological, elevation, and roof orientation data for Phase 2 environmental analysis."""
+    try:
+        raw = fetch_weather_history(lat, lng)
+        df = process_weather_data(raw)
+        calc_input = five_year_average(df)
+        yearly = ten_year_yearly_breakdown(df)
+        elevation_m = get_elevation(lat, lng)
+
+        ghi = calc_input.get("avg_ghi_kwh_m2_day", 5.18)
+        avg_temp = calc_input.get("avg_temp_c", 26.5)
+        avg_wind = calc_input.get("avg_wind_ms", 3.2)
+
+        return {
+            "location": {"lat": lat, "lng": lng},
+            "roof_bearing_deg": bearing,
+            "elevation_m": elevation_m,
+            "calculation_input": calc_input,
+            "yearly_variation": yearly,
+            "data_source": "open-meteo",
+            "solar": {
+                "ghi_kwh_m2_day": ghi,
+                "dni_kwh_m2_day": round(ghi * 1.15, 2),
+                "dhi_kwh_m2_day": round(ghi * 0.38, 2),
+                "psh_hours_day": round(ghi * 0.96, 2),
+                "annual_irradiance_kwh_m2": round(ghi * 365.25)
+            },
+            "weather": {
+                "temp_avg_c": avg_temp,
+                "temp_max_c": round(avg_temp + 12, 1),
+                "wind_speed_ms": avg_wind,
+                "humidity_percent": 60,
+                "clear_sky_days": 290
+            },
+            "terrain": {
+                "elevation_m": elevation_m if elevation_m is not None else 18.0,
+                "optimal_racking_tilt": round(abs(lat), 1),
+                "albedo": 0.20,
+                "surface_type": "Concrete / RCC Terrace"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Environmental data fetch failed: {str(e)}")
 
 
 @app.get("/api/v1/district-wards", summary="Municipal district solar potential & feeder heatmap data")
