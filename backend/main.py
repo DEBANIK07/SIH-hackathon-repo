@@ -3,9 +3,12 @@ OJAS Backend API Server (FastAPI)
 Provides RESTful APIs for PVLib Solar Energy Calculation Engine, Geocoding, & Environmental Data
 """
 
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from backend.config import (
@@ -456,6 +459,33 @@ async def submit_vendor_quote(req: VendorQuoteRequest):
         "phone": req.phone,
         "message": f"Dossier successfully routed to {req.vendor_name}. An engineer will contact within 24 hours."
     }
+
+
+# Static Asset Mounts & Frontend Routes
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+if (ROOT_DIR / "css").is_dir():
+    app.mount("/css", StaticFiles(directory=str(ROOT_DIR / "css")), name="css")
+if (ROOT_DIR / "js").is_dir():
+    app.mount("/js", StaticFiles(directory=str(ROOT_DIR / "js")), name="js")
+if (ROOT_DIR / "images").is_dir():
+    app.mount("/images", StaticFiles(directory=str(ROOT_DIR / "images")), name="images")
+
+
+@app.get("/", summary="Serve OJAS Main Portal")
+async def serve_index():
+    index_path = ROOT_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return {"status": "ONLINE", "message": "OJAS API is active"}
+
+
+@app.get("/assessment.html", summary="Serve OJAS Assessment Portal")
+async def serve_assessment():
+    assessment_path = ROOT_DIR / "assessment.html"
+    if assessment_path.exists():
+        return FileResponse(str(assessment_path))
+    return FileResponse(str(ROOT_DIR / "index.html"))
 
 
 if __name__ == "__main__":

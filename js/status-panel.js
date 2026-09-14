@@ -14,9 +14,7 @@ class StatusConsole {
 
   init() {
     this.container = document.getElementById(this.containerId);
-    if (!this.container) {
-      console.warn(`[StatusConsole] Container #${this.containerId} not found initially.`);
-    } else {
+    if (this.container) {
       this.log('OJAS Platform v1.0 initialized. Connected to System Log Stream.', 'INFO', 'SYSTEM');
     }
   }

@@ -9,11 +9,10 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Fonts & Samarkan -->
+  <!-- Modern Sans-Serif Fonts (Plus Jakarta Sans, Space Grotesk, JetBrains Mono) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.cdnfonts.com/css/samarkan" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
   <!-- Leaflet GIS Map CSS & JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -42,10 +41,9 @@
       <!-- Brand Logo -->
       <div class="logo flex items-center gap-3" onclick="location.href='index.html'" title="OJAS Solar Platform">
         <img src="images/logo.png" alt="OJAS Logo" class="brand-logo-img">
-        <span class="text-[10px] font-mono tracking-wider text-amber-500/80 border border-amber-500/30 px-1.5 py-0.5 rounded hidden sm:inline-block">ASSESSMENT · v2.0</span>
       </div>
 
-      <!-- Navigation Tabs (6 Interactive Views) -->
+      <!-- Navigation Tabs (5 Interactive Views) -->
       <div class="nav-tabs hidden md:flex">
         <div class="tab-btn active" id="tab-btn-assessment" onclick="switchTab('assessment')">
           <i class="fa-solid fa-house-laptop"></i> <span data-i18n="nav_assessment">Home &amp; Scan</span>
@@ -58,9 +56,6 @@
         </div>
         <div class="tab-btn" id="tab-btn-roi" onclick="switchTab('roi')">
           <i class="fa-solid fa-hand-holding-dollar"></i> <span data-i18n="nav_roi">Subsidy ROI</span>
-        </div>
-        <div class="tab-btn" id="tab-btn-gis" onclick="switchTab('gis')">
-          <i class="fa-solid fa-map-location-dot"></i> <span data-i18n="nav_gis">District GIS</span>
         </div>
         <div class="tab-btn" id="tab-btn-vendors" onclick="switchTab('vendors')">
           <i class="fa-solid fa-store"></i> <span data-i18n="nav_vendors">Empanelled Vendors</span>
@@ -93,7 +88,7 @@
               <span class="pulse-dot"></span>
               <span>PM SURYA GHAR : HIGH-RESOLUTION SATELLITE SURVEY</span>
             </div>
-            <h1 class="text-2xl md:text-4xl font-normal leading-tight" style="font-family: var(--font-samarkan);">
+            <h1 class="text-2xl md:text-4xl font-bold leading-tight">
               Interactive Rooftop Solar Assessment
             </h1>
           </div>
@@ -109,7 +104,7 @@
         <!-- Inputs -->
         <div class="lg:col-span-5 card-box">
           <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
-            <h2 class="text-xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="input_title">1. Property &amp; Installation Parameters</h2>
+            <h2 class="text-xl font-semibold text-amber-400" data-i18n="input_title">1. Property &amp; Installation Parameters</h2>
             <span class="text-xs font-mono text-slate-500">PARAM-INPUT</span>
           </div>
 
@@ -268,7 +263,7 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-4">
           <div>
             <div class="eyebrow mb-1"><span data-i18n="est_eyebrow">Financial Breakdown</span></div>
-            <h2 class="text-2xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="est_title">Total Investment &amp; Govt Subsidy Estimation</h2>
+            <h2 class="text-2xl font-bold text-amber-400" data-i18n="est_title">Total Investment &amp; Govt Subsidy Estimation</h2>
           </div>
           <span class="text-xs text-slate-400" data-i18n="est_disclaimer">*Based on PM Surya Ghar Benchmark Capital Cost Rules</span>
         </div>
@@ -349,7 +344,7 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-4 mb-6 gap-4">
           <div>
             <div class="eyebrow"><span data-i18n="wx_eyebrow">Meteorological Telemetry</span></div>
-            <h2 class="text-2xl font-normal text-amber-400" style="font-family: var(--font-samarkan);" data-i18n="wx_title">Past 10-Year Solar Weather &amp; Radiation Report</h2>
+            <h2 class="text-2xl font-bold text-amber-400" data-i18n="wx_title">Past 10-Year Solar Weather &amp; Radiation Report</h2>
           </div>
           <div class="flex items-center gap-3">
             <span class="text-xs text-amber-400 font-mono bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded" id="wxDistrictBadge">DISTRICT: KOLKATA METRO</span>
@@ -396,32 +391,16 @@
   <div id="page-roi" class="page-view">
     <div class="wrap"><div class="card-box"><h2 class="text-2xl text-amber-400 font-mono">Subsidy ROI View</h2><p class="text-slate-400 text-sm mt-2">Access the 25-year cashflow model on <a href="index.html" class="text-amber-400 underline">Home</a>.</p></div></div>
   </div>
-  <div id="page-gis" class="page-view">
-    <div class="wrap"><div class="card-box"><h2 class="text-2xl text-amber-400 font-mono">District GIS View</h2><p class="text-slate-400 text-sm mt-2">Access the municipal ward heatmap on <a href="index.html" class="text-amber-400 underline">Home</a>.</p></div></div>
-  </div>
+
   <div id="page-vendors" class="page-view">
     <div class="wrap"><div class="card-box"><h2 class="text-2xl text-amber-400 font-mono">Vendors View</h2><p class="text-slate-400 text-sm mt-2">Access the empanelled vendors directory on <a href="index.html" class="text-amber-400 underline">Home</a>.</p></div></div>
-  </div>
-
-  <!-- Status Console -->
-  <div class="wrap pb-12">
-    <div class="status-console">
-      <div class="console-header">
-        <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span class="text-[11px] font-bold text-slate-300">OJAS LOCATION SURVEY CONSOLE LOG</span>
-        </div>
-        <span class="text-[10px] text-slate-500">GATEWAY: http://localhost:8000</span>
-      </div>
-      <div class="console-body" id="status-console-body"></div>
-    </div>
   </div>
 
   <!-- Footer -->
   <footer class="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-600 font-mono">
     <div class="wrap flex flex-col sm:flex-row items-center justify-between gap-2">
       <div>
-        <strong class="text-slate-400" style="font-family: var(--font-samarkan);">OJAS</strong> — PM Surya Ghar Muft Bijli Yojana Assessment Engine
+        <strong class="text-slate-400">OJAS</strong> — PM Surya Ghar Muft Bijli Yojana Assessment Engine
       </div>
       <div>
         SURVEY COORDINATES: 22.5529° N · 88.3524° E
