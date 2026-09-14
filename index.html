@@ -597,22 +597,263 @@
         </div>
       </div>
 
-      <!-- Interactive AI 3D/2D Elevation Shading Canvas -->
-      <div class="card-box">
-        <h3 class="text-lg font-mono text-amber-400 mb-2 flex items-center gap-2">
-          <i class="fa-solid fa-cube"></i> Interactive Elevation Shading &amp; Solar Ray Simulator
-        </h3>
-        <p class="text-xs text-slate-400 mb-4">Adjust solar hour to simulate shadow vectors across parapet boundaries.</p>
+      <!-- ========================================================================= -->
+      <!-- LIVE OPENWEATHER DETECTION CORNER & ROOFTOP MICROCLIMATE -->
+      <!-- ========================================================================= -->
+      <div class="card-box border-cyan-500/30 relative overflow-hidden" id="aiWeatherCornerCard">
+        <div class="tricolor-ambient opacity-30"></div>
+        
+        <div class="relative z-10">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                <i class="fa-solid fa-satellite-dish"></i> OPENWEATHER LIVE DETECTION
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Real-time Radar Feed
+              </span>
+            </div>
+
+            <!-- Area & Action Controls -->
+            <div class="flex items-center gap-2">
+              <div class="text-xs font-mono text-slate-300 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-location-crosshairs text-amber-400"></i>
+                <span id="aiWeatherLocationName" class="font-bold text-amber-300">Kolkata, WB</span>
+                <span id="aiWeatherCoordinates" class="text-slate-500 text-[10px] hidden sm:inline">(22.5529° N, 88.3524° E)</span>
+              </div>
+              <button onclick="refreshAiWeather()" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-mono flex items-center gap-1.5 transition" title="Refresh Live Weather">
+                <i class="fa-solid fa-arrows-rotate" id="aiWeatherRefreshSpinner"></i>
+                <span class="hidden sm:inline">Sync</span>
+              </button>
+              <button onclick="toggleOpenWeatherKeyModal(true)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 border border-slate-700 rounded-lg text-xs font-mono transition" title="Configure OpenWeather API Key">
+                <i class="fa-solid fa-key"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- Left: Current Temperature & Condition Hero Card (4 cols) -->
+            <div class="lg:col-span-4 bg-slate-950/80 border border-slate-800/90 rounded-xl p-5 flex flex-col justify-between">
+              <div>
+                <div class="flex items-start justify-between">
+                  <div>
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">Atmospheric Temperature</span>
+                    <div class="flex items-baseline gap-2">
+                      <span id="aiLiveTemp" class="text-4xl sm:text-5xl font-bold font-mono text-slate-100">--.-°C</span>
+                      <span id="aiLiveTempF" class="text-xs font-mono text-slate-500">(--°F)</span>
+                    </div>
+                  </div>
+                  <div id="aiWeatherIconWrap" class="w-14 h-14 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-3xl text-cyan-400">
+                    <i class="fa-solid fa-cloud-sun" id="aiWeatherIconFa"></i>
+                  </div>
+                </div>
+
+                <div class="mt-3 flex items-center gap-2">
+                  <span id="aiWeatherCondition" class="text-sm font-semibold text-slate-200">Clear Sky</span>
+                  <span class="text-slate-600">·</span>
+                  <span id="aiWeatherDesc" class="text-xs font-mono text-slate-400">Optimal Solar Radiation</span>
+                </div>
+              </div>
+
+              <div class="pt-4 mt-4 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs font-mono">
+                <div>
+                  <span class="text-[10px] text-slate-500 block">FEELS LIKE</span>
+                  <span id="aiLiveFeelsLike" class="text-slate-200 font-semibold">--.-°C</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-500 block">TODAY RANGE</span>
+                  <span id="aiLiveMinMax" class="text-slate-200 font-semibold">--° / --°</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Middle: Solar Impact Metrics (5 cols) -->
+            <div class="lg:col-span-5 bg-slate-950/80 border border-slate-800/90 rounded-xl p-5 flex flex-col justify-between space-y-3">
+              <div>
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-2">PV Generation Atmospheric Factors</span>
+                
+                <div class="grid grid-cols-2 gap-3 font-mono text-xs">
+                  <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                      <span class="text-[10px]"><i class="fa-solid fa-cloud text-cyan-400"></i> Cloud Cover</span>
+                      <span id="aiLiveClouds" class="font-bold text-slate-200">--%</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div id="aiLiveCloudsBar" class="h-full bg-cyan-500 rounded-full" style="width: 20%;"></div>
+                    </div>
+                    <span id="aiLiveCloudImpact" class="text-[9px] text-slate-500 block mt-1">Direct Rays: High (95%)</span>
+                  </div>
+
+                  <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                      <span class="text-[10px]"><i class="fa-solid fa-droplet text-blue-400"></i> Humidity</span>
+                      <span id="aiLiveHumidity" class="font-bold text-slate-200">--%</span>
+                    </div>
+                    <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div id="aiLiveHumidityBar" class="h-full bg-blue-500 rounded-full" style="width: 60%;"></div>
+                    </div>
+                    <span id="aiLiveHumidityImpact" class="text-[9px] text-slate-500 block mt-1">Normal air mass</span>
+                  </div>
+
+                  <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                      <span class="text-[10px]"><i class="fa-solid fa-wind text-teal-400"></i> Wind Speed</span>
+                      <span id="aiLiveWind" class="font-bold text-teal-300">-- m/s</span>
+                    </div>
+                    <span id="aiLiveWindCooling" class="text-[10px] text-emerald-400 font-semibold block mt-0.5">Cell Cooling: Active</span>
+                    <span id="aiLiveWindDeg" class="text-[9px] text-slate-500 block">Heading: --°</span>
+                  </div>
+
+                  <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800/80">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                      <span class="text-[10px]"><i class="fa-solid fa-gauge-high text-amber-400"></i> Pressure</span>
+                      <span id="aiLivePressure" class="font-bold text-amber-300">-- hPa</span>
+                    </div>
+                    <span id="aiLiveAirMass" class="text-[10px] text-slate-300 block mt-0.5">Air Mass AM1.5</span>
+                    <span id="aiLiveVisibility" class="text-[9px] text-slate-500 block">Visibility: -- km</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between text-xs font-mono">
+                <span class="text-slate-300 flex items-center gap-1.5">
+                  <i class="fa-solid fa-solar-panel text-amber-400"></i> Solar PV Yield Index:
+                </span>
+                <span id="aiLiveSolarRating" class="text-emerald-400 font-bold">Class-A Optimal</span>
+              </div>
+            </div>
+
+            <!-- Right: IST Ephemeris (Sunrise/Sunset for Selected Coordinates) (3 cols) -->
+            <div class="lg:col-span-3 bg-slate-950/80 border border-slate-800/90 rounded-xl p-5 flex flex-col justify-between font-mono text-xs">
+              <div>
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-3">Astronomical IST Ephemeris</span>
+                
+                <div class="space-y-2.5">
+                  <div class="flex items-center justify-between p-2 bg-slate-900/70 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-sun text-amber-400"></i> Sunrise (IST):</span>
+                    <span id="aiLiveSunrise" class="font-bold text-amber-300">--:-- AM</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-slate-900/70 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-moon text-indigo-400"></i> Sunset (IST):</span>
+                    <span id="aiLiveSunset" class="font-bold text-indigo-300">--:-- PM</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-slate-900/70 rounded-lg border border-slate-800">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-regular fa-clock text-cyan-400"></i> Daylight Hours:</span>
+                    <span id="aiLiveDaylight" class="font-bold text-cyan-300">-- hrs</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3 text-[10px] text-slate-500 border-t border-slate-800/80 pt-2 flex items-center justify-between">
+                <span id="aiWeatherSourceBadge">OpenWeather Live Feed</span>
+                <span id="aiWeatherUpdateTime" class="text-slate-400">Updated: Just now</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================================= -->
+      <!-- REAL-TIME IST SOLAR ASTRONOMICAL ENGINE & ELEVATION SHADING -->
+      <!-- ========================================================================= -->
+      <div class="card-box border-amber-500/30">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2 font-mono">
+              <i class="fa-solid fa-sun text-amber-400"></i> Real-Time IST Solar Astronomical Engine &amp; Elevation Shading
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Computes real-time solar elevation, solar noon zenith, twilight, and parapet shade vectors for the selected area based on Indian Standard Time (IST).
+            </p>
+          </div>
+          <!-- Live IST Mode Toggle -->
+          <div class="flex items-center gap-2">
+            <button id="btnLiveIstMode" onclick="toggleLiveIstMode(true)" class="px-3 py-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-mono flex items-center gap-2 transition-all shadow-lg">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span id="liveIstBadgeText">● Live IST Realtime</span>
+            </button>
+            <button id="btnManualScrubMode" onclick="toggleLiveIstMode(false)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700 rounded-lg text-xs font-mono transition-all">
+              <i class="fa-solid fa-sliders text-amber-400"></i> Manual Scrub
+            </button>
+          </div>
+        </div>
+
+        <!-- Real-Time Astronomical Telemetry Pill Badges -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4 font-mono text-xs">
+          <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80">
+            <span class="text-[10px] text-slate-500 block uppercase">IST Live Clock (Area Time):</span>
+            <span class="text-sm font-bold text-amber-400 flex items-center gap-1.5 mt-0.5" id="solarIstTimeText">
+              <i class="fa-regular fa-clock"></i> --:--:-- PM IST
+            </span>
+          </div>
+          <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80">
+            <span class="text-[10px] text-slate-500 block uppercase">Sun Position Status:</span>
+            <span class="text-sm font-bold text-slate-200 flex items-center gap-1.5 mt-0.5" id="solarSunStatusText">
+              Detecting...
+            </span>
+          </div>
+          <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80">
+            <span class="text-[10px] text-slate-500 block uppercase">Solar Altitude Angle:</span>
+            <span class="text-sm font-bold text-cyan-300 flex items-center gap-1.5 mt-0.5" id="solarElevationText">
+              --° Altitude
+            </span>
+          </div>
+          <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800/80">
+            <span class="text-[10px] text-slate-500 block uppercase">Direct Photovoltaic Yield:</span>
+            <span class="text-sm font-bold text-emerald-400 flex items-center gap-1.5 mt-0.5" id="solarDirectIrradianceText">
+              -- W/m²
+            </span>
+          </div>
+        </div>
 
         <div class="space-y-4">
-          <div class="flex items-center gap-4 bg-slate-900 p-3 rounded-lg border border-slate-800">
-            <label class="text-xs font-mono text-slate-300">Simulate Time of Day:</label>
-            <input type="range" id="solarHourSlider" min="6" max="18" value="12" class="flex-1 accent-amber-500" oninput="drawRooftopSim(this.value)">
-            <span class="text-xs font-mono text-amber-400 font-bold" id="solarHourText">12:00 PM (Noon)</span>
+          <!-- 24-Hour Slider & Quick-Jump Presets -->
+          <div class="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label class="text-xs font-mono text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-amber-400"></i> Simulate Time of Day (24-Hour IST Scrubbing):
+              </label>
+              <span class="text-xs font-mono text-amber-400 font-bold px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded" id="solarHourText">
+                12:00 PM (Noon)
+              </span>
+            </div>
+            
+            <input type="range" id="solarHourSlider" min="0" max="24" step="0.05" value="12" class="w-full accent-amber-500 cursor-pointer" oninput="onSolarSliderInput(this.value)">
+
+            <!-- Quick-Jump Scenario Buttons -->
+            <div class="flex flex-wrap gap-1.5 pt-1 text-[11px] font-mono">
+              <button onclick="jumpSolarPreset('live')" class="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded flex items-center gap-1 transition-all">
+                <i class="fa-solid fa-location-crosshairs text-xs"></i> Current IST Now
+              </button>
+              <button onclick="jumpSolarPreset(6.0)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded transition-all">
+                Dawn (06:00 AM)
+              </button>
+              <button onclick="jumpSolarPreset(9.5)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded transition-all">
+                Morning (09:30 AM)
+              </button>
+              <button onclick="jumpSolarPreset(12.0)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded transition-all">
+                Solar Noon (12:00 PM)
+              </button>
+              <button onclick="jumpSolarPreset(15.0)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded transition-all">
+                Afternoon (03:00 PM)
+              </button>
+              <button onclick="jumpSolarPreset(18.25)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded transition-all">
+                Sunset Dusk (06:15 PM)
+              </button>
+              <button onclick="jumpSolarPreset(22.0)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded transition-all">
+                Night (10:00 PM)
+              </button>
+            </div>
           </div>
           
-          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-4 flex justify-center">
-            <canvas id="aiRoofCanvas" width="700" height="300" class="max-w-full h-auto"></canvas>
+          <!-- Astronomical Rooftop Shading Canvas -->
+          <div class="relative bg-slate-950 rounded-xl border border-slate-800 p-4 flex flex-col items-center overflow-hidden">
+            <canvas id="aiRoofCanvas" width="700" height="300" class="max-w-full h-auto rounded-lg"></canvas>
+            <div class="w-full mt-2.5 flex items-center justify-between text-[11px] font-mono text-slate-400 px-2">
+              <span id="canvasEastMarker"><i class="fa-solid fa-compass text-amber-400"></i> EAST (Sunrise ~06:00 AM)</span>
+              <span class="text-slate-500 font-mono text-[10px]" id="canvasRoofNote">TERRACE PV ARRAY &amp; PARAPET SHADOW VECTOR</span>
+              <span id="canvasWestMarker">WEST (Sunset ~06:30 PM) <i class="fa-solid fa-compass text-amber-400"></i></span>
+            </div>
           </div>
         </div>
       </div>
@@ -740,6 +981,31 @@
         <button class="btn-primary w-full" onclick="submitVendorApplication()">
           Submit Audit Dossier &amp; Connect
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPENWEATHER API KEY CONFIGURATION MODAL -->
+  <div id="openWeatherKeyModal" class="modal-backdrop">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-xl max-w-md w-full mx-4 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold text-cyan-400 flex items-center gap-2">
+          <i class="fa-solid fa-key"></i> OpenWeather API Key
+        </h3>
+        <i class="fa-solid fa-xmark text-slate-400 cursor-pointer hover:text-white" onclick="toggleOpenWeatherKeyModal(false)"></i>
+      </div>
+      <p class="text-xs text-slate-400">
+        Enter your OpenWeatherMap API Key to fetch live atmospheric telemetry for rooftops. If left blank, real-time satellite radar fallback will automatically provide continuous coverage.
+      </p>
+      <div class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="text-[11px] text-slate-300 block mb-1">OpenWeather API Key (V2.5 / V3.0):</label>
+          <input type="text" id="openWeatherKeyInput" placeholder="e.g. b1b15e88fa797225412429..." class="form-input w-full">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="btn-secondary text-xs px-3 py-1.5" onclick="toggleOpenWeatherKeyModal(false)">Cancel</button>
+          <button type="button" class="btn-primary text-xs px-4 py-1.5" onclick="saveOpenWeatherKey()">Save &amp; Sync</button>
+        </div>
       </div>
     </div>
   </div>

@@ -490,6 +490,14 @@ class OJASMapController {
       }
     }
 
+    // Update Rooftop AI live weather & astronomical sun engine for confirmed rooftop centroid
+    if (typeof updateAiWeather === 'function') {
+      updateAiWeather(this.currentLat, this.currentLng);
+    }
+    if (typeof updateSolarCoordinates === 'function') {
+      updateSolarCoordinates(this.currentLat, this.currentLng);
+    }
+
     if (window.StatusLog) {
       window.StatusLog.log(
         `✓ Usable area applied: ${this.calculatedArea.usableSqm.toFixed(1)} m² (${Math.round(this.calculatedArea.usableSqft)} sq ft). Gross: ${this.calculatedArea.grossSqm.toFixed(1)} m². Solar recalculation complete.`,
@@ -547,11 +555,25 @@ class OJASMapController {
           if (typeof updateDistrictWeather === 'function') {
             updateDistrictWeather(lat, lng, districtName);
           }
+
+          // Update Rooftop AI Live Weather Detection Corner & Astronomical Sun Engine
+          if (typeof updateAiWeather === 'function') {
+            updateAiWeather(lat, lng, districtName);
+          }
+          if (typeof updateSolarCoordinates === 'function') {
+            updateSolarCoordinates(lat, lng, districtName);
+          }
         }
       })
       .catch(() => {
         if (typeof updateDistrictWeather === 'function') {
           updateDistrictWeather(lat, lng);
+        }
+        if (typeof updateAiWeather === 'function') {
+          updateAiWeather(lat, lng);
+        }
+        if (typeof updateSolarCoordinates === 'function') {
+          updateSolarCoordinates(lat, lng);
         }
       });
   }
