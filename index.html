@@ -857,6 +857,64 @@
           </div>
         </div>
       </div>
+
+      <!-- ========================================================================= -->
+      <!-- STATE SOLAR PANEL RECOMMENDATION ENGINE (GEOAPIFY + PDF GUIDELINES)       -->
+      <!-- ========================================================================= -->
+      <div class="card-box border-emerald-500/30 relative overflow-hidden" id="statePanelAdvisorCard">
+        <div class="tricolor-ambient opacity-20"></div>
+
+        <div class="relative z-10">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="flex items-center gap-2.5">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                <i class="fa-solid fa-solar-panel"></i> STATE PV ADVISOR
+              </span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/30">
+                <i class="fa-solid fa-location-crosshairs"></i> Geoapify Reverse Geocoding
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <div class="text-xs font-mono text-slate-300 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-flag text-amber-400"></i>
+                <span class="text-slate-400">Identified State:</span>
+                <span id="advisorStateName" class="font-bold text-amber-300">West Bengal</span>
+              </div>
+              <button onclick="toggleGeoapifyKeyModal(true)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 border border-slate-700 rounded-lg text-xs font-mono transition" title="Configure Geoapify API Key">
+                <i class="fa-solid fa-key"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <h3 class="text-xl font-bold text-amber-400 flex items-center gap-2 font-mono">
+              <i class="fa-solid fa-microchip text-amber-400"></i> Optimal Solar Panel Technology for Your Home
+            </h3>
+            <p class="text-xs text-slate-400 mt-1" id="advisorStateDesc">
+              Based on official empirical rooftop adoption data across Indian States &amp; Union Territories, the following solar PV module technology is benchmarked as the best fit for residential rooftops in <strong class="text-slate-200" id="advisorStateInlineText">West Bengal</strong>.
+            </p>
+          </div>
+
+          <!-- Dynamic Panel Options Container (1 or 2 options dynamically rendered) -->
+          <div id="advisorPanelCardsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <!-- Rendered dynamically by JavaScript -->
+          </div>
+
+          <!-- State Microclimate & Technology Rationale Box -->
+          <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl p-4 flex items-start gap-3">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0 mt-0.5">
+              <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <div class="text-xs font-mono">
+              <span class="text-slate-300 font-bold block mb-0.5">Climatic Suitability Rationale:</span>
+              <p class="text-slate-400 leading-relaxed" id="advisorStateRationale">
+                Mono PERC delivers superior low-light and humid-air performance in West Bengal's climate, while Thin-Film serves specialized high-temperature diffuse or partial shading terrace profiles.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1005,6 +1063,31 @@
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="btn-secondary text-xs px-3 py-1.5" onclick="toggleOpenWeatherKeyModal(false)">Cancel</button>
           <button type="button" class="btn-primary text-xs px-4 py-1.5" onclick="saveOpenWeatherKey()">Save &amp; Sync</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GEOAPIFY API KEY CONFIGURATION MODAL -->
+  <div id="geoapifyKeyModal" class="modal-backdrop">
+    <div class="bg-slate-900 border border-slate-700 p-6 rounded-xl max-w-md w-full mx-4 space-y-4 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="text-lg font-bold text-cyan-400 flex items-center gap-2">
+          <i class="fa-solid fa-key"></i> Geoapify Reverse Geocoding API Key
+        </h3>
+        <i class="fa-solid fa-xmark text-slate-400 cursor-pointer hover:text-white" onclick="toggleGeoapifyKeyModal(false)"></i>
+      </div>
+      <p class="text-xs text-slate-400">
+        Enter your Geoapify API Key to resolve the exact Indian State / Union Territory of your map pointer. If left blank, autonomous satellite geocoding fallback will be utilized.
+      </p>
+      <div class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="text-[11px] text-slate-300 block mb-1">Geoapify API Key:</label>
+          <input type="text" id="geoapifyKeyInput" placeholder="e.g. 6c8f9db564b14d59a850..." class="form-input w-full">
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" class="btn-secondary text-xs px-3 py-1.5" onclick="toggleGeoapifyKeyModal(false)">Cancel</button>
+          <button type="button" class="btn-primary text-xs px-4 py-1.5" onclick="saveGeoapifyKey()">Save &amp; Detect</button>
         </div>
       </div>
     </div>

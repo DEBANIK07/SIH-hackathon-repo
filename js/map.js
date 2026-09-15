@@ -490,12 +490,15 @@ class OJASMapController {
       }
     }
 
-    // Update Rooftop AI live weather & astronomical sun engine for confirmed rooftop centroid
+    // Update Rooftop AI live weather, astronomical sun engine & State PV Advisor for confirmed rooftop centroid
     if (typeof updateAiWeather === 'function') {
       updateAiWeather(this.currentLat, this.currentLng);
     }
     if (typeof updateSolarCoordinates === 'function') {
       updateSolarCoordinates(this.currentLat, this.currentLng);
+    }
+    if (typeof identifyStateAndRecommendPanels === 'function') {
+      identifyStateAndRecommendPanels(this.currentLat, this.currentLng);
     }
 
     if (window.StatusLog) {
@@ -563,6 +566,9 @@ class OJASMapController {
           if (typeof updateSolarCoordinates === 'function') {
             updateSolarCoordinates(lat, lng, districtName);
           }
+          if (typeof identifyStateAndRecommendPanels === 'function') {
+            identifyStateAndRecommendPanels(lat, lng, districtName);
+          }
         }
       })
       .catch(() => {
@@ -574,6 +580,9 @@ class OJASMapController {
         }
         if (typeof updateSolarCoordinates === 'function') {
           updateSolarCoordinates(lat, lng);
+        }
+        if (typeof identifyStateAndRecommendPanels === 'function') {
+          identifyStateAndRecommendPanels(lat, lng);
         }
       });
   }

@@ -381,6 +381,7 @@ function switchTab(tabId) {
     if (!currentAiWeather) {
       updateAiWeather(currentSolarLat, currentSolarLng, currentSolarLocationName);
     }
+    identifyStateAndRecommendPanels(currentSolarLat, currentSolarLng, currentSolarLocationName);
   }
 
   if (window.StatusLog) {
@@ -603,6 +604,7 @@ function selectSuggestion(lat, lon, displayName) {
   updateDistrictWeather(latitude, longitude, displayName);
   updateAiWeather(latitude, longitude, displayName);
   updateSolarCoordinates(latitude, longitude, displayName);
+  identifyStateAndRecommendPanels(latitude, longitude, displayName);
 }
 
 function hideSuggestions() {
@@ -653,6 +655,7 @@ function geocodeAddress() {
         updateDistrictWeather(lat, lon, data[0].display_name);
         updateAiWeather(lat, lon, data[0].display_name);
         updateSolarCoordinates(lat, lon, data[0].display_name);
+        identifyStateAndRecommendPanels(lat, lon, data[0].display_name);
 
         if (statusText) {
           statusText.className = "text-emerald-400 flex items-center gap-1 text-[11px] font-mono";
@@ -697,6 +700,7 @@ function useCurrentLocation() {
       updateDistrictWeather(lat, lng, 'Current GPS Location');
       updateAiWeather(lat, lng, 'Current GPS Location');
       updateSolarCoordinates(lat, lng, 'Current GPS Location');
+      identifyStateAndRecommendPanels(lat, lng, 'Current GPS Location');
 
       if (statusText) {
         statusText.className = "text-emerald-400 flex items-center gap-1 text-[11px] font-mono";
@@ -1123,6 +1127,7 @@ let isAiWeatherLoading = false;
 
 function initAiWeather() {
   updateAiWeather(currentSolarLat, currentSolarLng, currentSolarLocationName);
+  identifyStateAndRecommendPanels(currentSolarLat, currentSolarLng, currentSolarLocationName);
 }
 
 function toggleOpenWeatherKeyModal(show = true) {
@@ -1870,6 +1875,1088 @@ function drawRooftopSim(hour, forceLive = false) {
   }
 }
 
+/* ========================================================================= */
+/* GEOAPIFY REVERSE GEOCODING & STATE-WISE SOLAR PANEL ADVISOR ENGINE         */
+/* ========================================================================= */
+
+let geoapifyApiKey = localStorage.getItem('ojas_geoapify_key') || '6c8f9db564b14d59a8501dc8a2ca82e6';
+let currentDetectedState = "West Bengal";
+
+// Comprehensive PDF Knowledge Base: Solar Panel Types Majorly Used in India (State & UT Wise)
+const STATE_SOLAR_PANEL_DATA = {
+  "andhra pradesh": {
+    state: "Andhra Pradesh",
+    panels: [
+      {
+        name: "Bifacial",
+        type: "bifacial",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "emerald",
+        efficiency: "21.0% – 22.5% (+15-25% Rear)",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Dual-Face (~125 sq ft / kW)",
+        bestRoof: "Elevated Terrace Pergola, White Coated Roof",
+        whyBest: "Andhra Pradesh's high solar insolation and bright reflective terraces allow dual-glass Bifacial panels to capture both direct sunlight and terrace albedo reflection, boosting energy yield by up to 22%."
+      },
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "COST-EFFECTIVE OPTION",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "Large Residential & Agricultural Terraces",
+        whyBest: "Offers the lowest capital setup cost per watt for large terrace footprints under PM Surya Ghar subsidies, ensuring fastest break-even ROI."
+      }
+    ],
+    rationale: "Andhra Pradesh features high solar irradiance where dual-glass Bifacial panels maximize energy harvest on reflective terraces, while Polycrystalline remains widely deployed for large domestic rooftops seeking lowest capital cost."
+  },
+  "arunachal pradesh": {
+    state: "Arunachal Pradesh",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Tin & RCC Roofs",
+        whyBest: "High cell efficiency and advanced passivated rear emitters ensure maximum electricity generation during shorter sunlight windows and mountainous cloudy days."
+      }
+    ],
+    rationale: "Hilly topography and frequent cloud diffusion make high-efficiency Mono PERC panels the optimal choice for maximum generation per square foot."
+  },
+  "assam": {
+    state: "Assam",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Metal & RCC Terraces",
+        whyBest: "Mono PERC panels excel in Assam's humid subtropical climate by capturing scattered diffused light during the monsoon season."
+      }
+    ],
+    rationale: "Subtropical monsoon weather and diffuse sunlight profiles make Mono PERC modules the dominant, high-performing choice across Assam."
+  },
+  "bihar": {
+    state: "Bihar",
+    panels: [
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "BUDGET BENCHMARK",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces",
+        whyBest: "Highly popular across Bihar for fast payback under DISCOM net-metering and PM Surya Ghar subsidies with minimal upfront investment."
+      },
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "HIGH EFFICIENCY OPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Urban & Semi-Urban Homes",
+        whyBest: "Generates 20%+ more kWh from compact terrace footprints in Patna, Gaya, and Muzaffarpur urban residences."
+      }
+    ],
+    rationale: "Bihar's residential installations balance economical Polycrystalline systems for budget-conscious homes with high-density Mono PERC for compact city terraces."
+  },
+  "chhattisgarh": {
+    state: "Chhattisgarh",
+    panels: [
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces & Metal Sheds",
+        whyBest: "Substantial sunlight hours and large flat terraces make durable Polycrystalline modules the state's most cost-effective solar choice."
+      }
+    ],
+    rationale: "Consistently high insolation and spacious terrace layouts allow Polycrystalline modules to deliver quick financial payback across Chhattisgarh."
+  },
+  "goa": {
+    state: "Goa",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Tile & RCC Terraces",
+        whyBest: "Anti-PID, corrosion-resistant tempered glass withstands marine salt air while maximizing wattage on traditional Goan tiled or terrace rooftops."
+      }
+    ],
+    rationale: "Coastal microclimates and architectural aesthetics make anti-corrosive Mono PERC panels the leading technology across Goa."
+  },
+  "gujarat": {
+    state: "Gujarat",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "STANDARD BENCHMARK",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Terraces & Industrial Sheds",
+        whyBest: "Proven tier-1 technology powering Gujarat's leading residential solar rollout with long warranty and high generation."
+      },
+      {
+        name: "TOPCon",
+        type: "bifacial",
+        badge: "NEXT-GEN N-TYPE",
+        badgeColor: "cyan",
+        efficiency: "22.0% – 23.2%",
+        tempCoeff: "-0.30% / °C (Lowest heat loss)",
+        footprint: "Ultra-Compact (~120 sq ft / kW)",
+        bestRoof: "High-Temperature Urban Terraces",
+        whyBest: "N-Type TOPCon cells resist extreme summer temperatures with lowest thermal degradation, delivering industry-leading energy yield."
+      }
+    ],
+    rationale: "As India's leading residential solar state, Gujarat utilizes high-performing Mono PERC and next-generation N-Type TOPCon panels for maximum power under hot arid conditions."
+  },
+  "haryana": {
+    state: "Haryana",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces",
+        whyBest: "Standard ALMM-certified panels offering optimal balance of capital cost, high efficiency, and strong DISCOM net-metering compatibility."
+      },
+      {
+        name: "TOPCon",
+        type: "bifacial",
+        badge: "PREMIUM HEAT-RESISTANT",
+        badgeColor: "cyan",
+        efficiency: "22.0% – 23.2%",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Ultra-Compact (~120 sq ft / kW)",
+        bestRoof: "Urban Villas & Kothis",
+        whyBest: "Thrives in Haryana's 45°C+ summer peaks, generating 6-8% more daily units than conventional modules due to superior temperature coefficient."
+      }
+    ],
+    rationale: "Haryana homeowners benefit from Mono PERC for standard installations and TOPCon modules for extreme summer heat resilience and high urban space efficiency."
+  },
+  "himachal pradesh": {
+    state: "Himachal Pradesh",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Pitched Tin & Sloping Roofs",
+        whyBest: "Colder ambient air temperatures enhance Mono PERC cell voltage, generating peak power output per square foot of rooftop."
+      }
+    ],
+    rationale: "Cool mountain temperatures and high clearness index boost Mono PERC operating efficiency to its highest thermodynamic potential."
+  },
+  "jharkhand": {
+    state: "Jharkhand",
+    panels: [
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "BUDGET CHOICE",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "Spacious Flat Terraces",
+        whyBest: "Reliable, durable technology providing lowest upfront investment for households seeking immediate electricity bill reduction."
+      },
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "HIGH DENSITY OPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Urban Terraces (Ranchi/Jamshedpur)",
+        whyBest: "Maximizes kWp capacity on compact city rooftops with limited shadow-free installation area."
+      }
+    ],
+    rationale: "Jharkhand deployments offer economical Polycrystalline for budget-oriented roofs and high-density Mono PERC for urban residences."
+  },
+  "karnataka": {
+    state: "Karnataka",
+    panels: [
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "POPULAR STANDARD",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces",
+        whyBest: "Extensively installed across Karnataka due to proven reliability, low replacement cost, and favorable BESCOM net-metering."
+      },
+      {
+        name: "Bifacial",
+        type: "bifacial",
+        badge: "ALBEDO-OPTIMIZED",
+        badgeColor: "emerald",
+        efficiency: "21.0% – 22.5% (+20% Rear)",
+        tempCoeff: "-0.32% / °C",
+        footprint: "Elevated Frame (~125 sq ft / kW)",
+        bestRoof: "Elevated Rooftop Pergolas & White Terraces",
+        whyBest: "Mounted on raised solar canopy mounts to double energy capture while keeping the terrace completely usable for family recreation."
+      }
+    ],
+    rationale: "Karnataka features both established Polycrystalline installations and cutting-edge elevated Bifacial canopy arrays that preserve rooftop recreational space."
+  },
+  "kerala": {
+    state: "Kerala",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Tile & Truss Roofs",
+        whyBest: "Exceptional low-light and diffuse radiation performance during the South-West and North-East monsoons, maximizing generation in compact yards and roofs."
+      }
+    ],
+    rationale: "Heavy seasonal rainfall, cloud cover, and compact sloping roof architecture make high-density Mono PERC the undisputed choice in Kerala."
+  },
+  "madhya pradesh": {
+    state: "Madhya Pradesh",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "HIGH EFFICIENCY",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces",
+        whyBest: "Maximizes surplus power fed back into the DISCOM grid, boosting revenue credits under state net-metering."
+      },
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "COST-EFFECTIVE OPTION",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "Broad Flat Terraces",
+        whyBest: "300+ clear sunny days provide ample solar insolation for Polycrystalline panels to produce robust daily kWh at the lowest capital expense."
+      }
+    ],
+    rationale: "Central India's strong insolation allows homeowners in Madhya Pradesh to select either high-yield Mono PERC or budget-optimized Polycrystalline."
+  },
+  "maharashtra": {
+    state: "Maharashtra",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Urban RCC Terraces & Societies",
+        whyBest: "High efficiency is essential in Mumbai, Pune, and Nagpur where rooftop terrace space is constrained and electricity tariffs are among the highest in India."
+      }
+    ],
+    rationale: "High residential electricity tariffs and urban space constraints make Mono PERC the leading technology to maximize savings across Maharashtra."
+  },
+  "manipur": {
+    state: "Manipur",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Tin & Galvanized Roofs",
+        whyBest: "Delivers steady power under mountain valley cloud patterns and diffused solar radiation."
+      }
+    ],
+    rationale: "Mountainous topography and variable sky clearness favor Mono PERC's high optical capture efficiency."
+  },
+  "meghalaya": {
+    state: "Meghalaya",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Pitched Corrugated Metal Roofs",
+        whyBest: "The wettest state in India requires Mono PERC's rear-passivation layer to capture every available photon through heavy clouds and fog."
+      }
+    ],
+    rationale: "High rainfall and persistent overcast make Mono PERC the essential technology for viable solar energy capture in Meghalaya."
+  },
+  "mizoram": {
+    state: "Mizoram",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Sheet Roofs",
+        whyBest: "Provides high power-to-weight ratio for hillside homes with compact rooftop footprints."
+      }
+    ],
+    rationale: "Steep topography and limited roof areas mandate high power-density Mono PERC modules."
+  },
+  "nagaland": {
+    state: "Nagaland",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Pitched Metal & Timber Framing",
+        whyBest: "Reliable performance during cloudy seasons and high humidity resistance."
+      }
+    ],
+    rationale: "High humidity and hilly terrain require resilient, high-efficiency Mono PERC modules."
+  },
+  "odisha": {
+    state: "Odisha",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Reinforced RCC Flat Terraces",
+        whyBest: "Heavy-duty tempered glass withstands coastal wind gusts while Mono PERC cells deliver high output under coastal tropical heat."
+      }
+    ],
+    rationale: "Coastal weather and high summer temperatures require rugged, high-performance Mono PERC panels with anti-cyclonic structural mounts."
+  },
+  "punjab": {
+    state: "Punjab",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Spacious Kothi Terraces",
+        whyBest: "Enables households to install 5kW–10kW systems that completely offset heavy air-conditioning loads and domestic consumption."
+      }
+    ],
+    rationale: "High residential power demand and spacious urban residences make high-wattage Mono PERC modules the preferred standard in Punjab."
+  },
+  "rajasthan": {
+    state: "Rajasthan",
+    panels: [
+      {
+        name: "Bifacial",
+        type: "bifacial",
+        badge: "HIGHEST ENERGY YIELD",
+        badgeColor: "emerald",
+        efficiency: "21.5% (+22% Rear Albedo)",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Elevated Frame (~125 sq ft / kW)",
+        bestRoof: "Elevated Canopy & Light Painted Roofs",
+        whyBest: "Rajasthan's intense sunlight and reflective desert ground albedo allow dual-glass Bifacial panels to produce up to 25% additional kWh from the rear face."
+      },
+      {
+        name: "TOPCon",
+        type: "bifacial",
+        badge: "HEAT-OPTIMIZED N-TYPE",
+        badgeColor: "cyan",
+        efficiency: "22.2% – 23.5%",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Ultra-Compact (~120 sq ft / kW)",
+        bestRoof: "Hot Desert Terraces & RCC Roofs",
+        whyBest: "N-Type TOPCon cells operate with virtually zero light-induced degradation (LID) and withstand 48°C+ summer heat with lowest power loss."
+      }
+    ],
+    rationale: "As India's highest solar radiation zone, Rajasthan maximizes output using Bifacial panels for ground reflection and TOPCon for minimal heat loss."
+  },
+  "sikkim": {
+    state: "Sikkim",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Metal & RCC Roofs",
+        whyBest: "Cold Himalayan mountain air elevates panel operating voltage, achieving peak efficiency from Mono PERC monocrystalline silicon."
+      }
+    ],
+    rationale: "Cold high-altitude climates maximize Mono PERC cell voltage and power density."
+  },
+  "tamil nadu": {
+    state: "Tamil Nadu",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "HIGH EFFICIENCY CHOICE",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Urban Terraces (Chennai/Coimbatore)",
+        whyBest: "Lower temperature coefficient ensures superior sustained generation during hot, humid tropical summer months."
+      },
+      {
+        name: "Polycrystalline",
+        type: "polycrystalline",
+        badge: "BUDGET BENCHMARK",
+        badgeColor: "blue",
+        efficiency: "16.5% – 17.8%",
+        tempCoeff: "-0.39% / °C",
+        footprint: "Standard (~160 sq ft / kW)",
+        bestRoof: "Industrial & Spacious Domestic Terraces",
+        whyBest: "Wide availability and lowest cost per watt make it a trusted choice for larger suburban terraces."
+      }
+    ],
+    rationale: "Tamil Nadu features widespread adoption of Mono PERC for tropical heat tolerance alongside Polycrystalline for budget-optimized rooftop installations."
+  },
+  "telangana": {
+    state: "Telangana",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "URBAN BENCHMARK",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces & Apartments",
+        whyBest: "Delivers maximum kWp capacity in Hyderabad's competitive rooftop solar market with fast approvals."
+      },
+      {
+        name: "Bifacial",
+        type: "bifacial",
+        badge: "ELEVATED CANOPY OPTION",
+        badgeColor: "emerald",
+        efficiency: "21.0% – 22.5% (+20% Rear)",
+        tempCoeff: "-0.32% / °C",
+        footprint: "Dual-Face (~125 sq ft / kW)",
+        bestRoof: "Elevated Terrace Canopy",
+        whyBest: "Mounted at 7–9 feet height to create a shaded rooftop lounge while generating surplus dual-sided solar electricity."
+      }
+    ],
+    rationale: "Telangana homes lead in deploying space-efficient Mono PERC modules and architectural elevated Bifacial canopies that double terrace utility."
+  },
+  "tripura": {
+    state: "Tripura",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Sloping Sheet & RCC Terraces",
+        whyBest: "Reliable energy capture during humid monsoon overcast and compact residential roof setups."
+      }
+    ],
+    rationale: "High humidity and diffuse daylight make Mono PERC the standard high-performing technology in Tripura."
+  },
+  "uttar pradesh": {
+    state: "Uttar Pradesh",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces",
+        whyBest: "The #1 panel technology under PM Surya Ghar in UP, offering top ALMM manufacturer availability, rapid DISCOM net-metering approvals, and highest return on investment."
+      }
+    ],
+    rationale: "As the top state for PM Surya Ghar rooftop installations, Uttar Pradesh predominantly deploys high-efficiency Mono PERC modules for maximum subsidy ROI."
+  },
+  "uttarakhand": {
+    state: "Uttarakhand",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Pitched Tin & Sloping Terraces",
+        whyBest: "Provides high power output in northern mountain weather, snow-load resistance, and low-light morning generation."
+      }
+    ],
+    rationale: "Sub-Himalayan sunshine and sloping roof architectures make Mono PERC the leading rooftop panel technology across Uttarakhand."
+  },
+  "west bengal": {
+    state: "West Bengal",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ROOFTOP BENCHMARK",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces",
+        whyBest: "The benchmark residential rooftop panel in West Bengal, delivering high kWh yield under dense urban terrace space and humid climate conditions."
+      },
+      {
+        name: "Thin-Film",
+        type: "monocrystalline",
+        badge: "DIFFUSE & SHADE SPECIALIST",
+        badgeColor: "purple",
+        efficiency: "13.0% – 14.5%",
+        tempCoeff: "-0.20% / °C (Lowest heat sensitivity)",
+        footprint: "Broad Surface (~220 sq ft / kW)",
+        bestRoof: "Curved Roofs & Partially Shaded Profiles",
+        whyBest: "Thin-Film CdTe/CIGS layers excel under diffused sunlight and high humidity, operating with lowest temperature losses during humid monsoon days."
+      }
+    ],
+    rationale: "West Bengal balances high-efficiency Mono PERC for standard urban terraces with specialized Thin-Film technology for humid, diffused coastal skies and shaded roof layouts."
+  },
+  "andaman & nicobar islands": {
+    state: "Andaman & Nicobar Islands",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Corrosion-Resistant RCC & Metal Mounts",
+        whyBest: "Certified salt-mist and coastal corrosion resistant panels that guarantee 25-year reliability in marine island air."
+      },
+      {
+        name: "Bifacial",
+        type: "bifacial",
+        badge: "ISLAND ALBEDO HARVEST",
+        badgeColor: "emerald",
+        efficiency: "21.0% + up to 25% Rear",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Elevated Frame (~125 sq ft / kW)",
+        bestRoof: "White Painted Terraces & Canopies",
+        whyBest: "Captures tropical sunlight and strong coastal albedo reflection from light-colored concrete terraces, producing clean island power."
+      }
+    ],
+    rationale: "Marine island climate demands anti-corrosion Mono PERC and high-albedo dual-glass Bifacial panels to replace expensive diesel power."
+  },
+  "chandigarh": {
+    state: "Chandigarh",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Urban Terraces & Marla Houses",
+        whyBest: "Complies with strict Chandigarh urban planning regulations, providing all-black sleek aesthetics and maximum solar generation per sq ft."
+      }
+    ],
+    rationale: "Strict architectural standards and planned urban plots make sleek, high-efficiency Mono PERC panels the preferred choice in Chandigarh."
+  },
+  "dadra & nagar haveli and daman & diu": {
+    state: "Dadra & Nagar Haveli and Daman & Diu",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Industrial & Residential Terraces",
+        whyBest: "High efficiency maximizes electricity output to offset high commercial and domestic power tariffs."
+      }
+    ],
+    rationale: "Industrial micro-climate and coastal proximity favor compact, high-efficiency Mono PERC modules."
+  },
+  "delhi": {
+    state: "Delhi",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "STANDARD URBAN BENCHMARK",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Floor Builder Terraces & Kothis",
+        whyBest: "The standard choice across Delhi NCT, maximizing generation on shared terraces to zero out summer power bills under DTL and BRPL/BYPL net metering."
+      },
+      {
+        name: "TOPCon",
+        type: "bifacial",
+        badge: "NEXT-GEN N-TYPE HEAT SHIELD",
+        badgeColor: "cyan",
+        efficiency: "22.2% – 23.5%",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Ultra-Compact (~120 sq ft / kW)",
+        bestRoof: "High-Rise & Premium Rooftops",
+        whyBest: "Resists extreme Delhi heatwaves (46°C+) with minimal thermal derating, generating up to 8% more electricity during peak AC season."
+      }
+    ],
+    rationale: "Delhi's dense urban terraces and extreme summer heatwaves make Mono PERC for standard plots and N-Type TOPCon for maximum heat-resistant generation the top two recommendations."
+  },
+  "jammu & kashmir": {
+    state: "Jammu & Kashmir",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Pitched Tin & Concrete Roofs",
+        whyBest: "High cell sensitivity performs exceptionally well under cold winter sunshine and heavy snow load conditions."
+      },
+      {
+        name: "TOPCon",
+        type: "bifacial",
+        badge: "HIGH ALTITUDE ADVANTAGE",
+        badgeColor: "cyan",
+        efficiency: "22.0% – 23.2%",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Ultra-Compact (~120 sq ft / kW)",
+        bestRoof: "Cold Mountain Climates",
+        whyBest: "Advanced N-type silicon technology captures ultraviolet and diffuse light while maintaining peak voltage in freezing temperatures."
+      }
+    ],
+    rationale: "Cold mountain conditions boost semiconductor voltage; Mono PERC and TOPCon deliver record winter performance across Jammu & Kashmir."
+  },
+  "ladakh": {
+    state: "Ladakh",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Flat Mud/Concrete & Sloping Mounts",
+        whyBest: "High altitude irradiance (over 320 sunny days) combined with cold air makes Mono PERC modules operate at maximum rated wattage."
+      },
+      {
+        name: "TOPCon",
+        type: "bifacial",
+        badge: "EXTREME COLD & UV LEADER",
+        badgeColor: "cyan",
+        efficiency: "22.5% – 23.8%",
+        tempCoeff: "-0.30% / °C",
+        footprint: "Ultra-Compact (~120 sq ft / kW)",
+        bestRoof: "High-Altitude Solar Arrays",
+        whyBest: "TOPCon's tunnel oxide design withstands high ultraviolet radiation and sub-zero freeze-thaw cycles without micro-cracking."
+      }
+    ],
+    rationale: "Ladakh receives India's highest direct solar irradiance at sub-zero temperatures; Mono PERC and TOPCon deliver the highest daily kWh generation in the world here."
+  },
+  "lakshadweep": {
+    state: "Lakshadweep",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "ISLAND MARINE STANDARD",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "Coastal Reinforced Concrete Roofs",
+        whyBest: "Salt-mist proof modules providing robust, independent renewable energy for island homes."
+      },
+      {
+        name: "Bifacial",
+        type: "bifacial",
+        badge: "CORAL ALBEDO HARVEST",
+        badgeColor: "emerald",
+        efficiency: "21.0% + up to 25% Rear Albedo",
+        tempCoeff: "-0.32% / °C",
+        footprint: "Dual-Face (~125 sq ft / kW)",
+        bestRoof: "Elevated White Terrace Frames",
+        whyBest: "Surrounding white coral sand and reflective white terraces provide maximum rear-face albedo reflection, boosting generation by up to 25%."
+      }
+    ],
+    rationale: "Equatorial sunlight and white coral sand reflection make dual-glass Bifacial panels and corrosion-resistant Mono PERC the premier solution for island electrification."
+  },
+  "puducherry": {
+    state: "Puducherry",
+    panels: [
+      {
+        name: "Mono PERC",
+        type: "monocrystalline",
+        badge: "PRIMARY ADOPTION",
+        badgeColor: "amber",
+        efficiency: "20.5% – 21.8%",
+        tempCoeff: "-0.35% / °C",
+        footprint: "Compact (~130 sq ft / kW)",
+        bestRoof: "RCC Flat Terraces & Heritage Roofs",
+        whyBest: "Delivers maximum solar generation from compact residential plots in coastal Puducherry."
+      }
+    ],
+    rationale: "Coastal sunshine and compact urban residential rooftops make high-efficiency Mono PERC the leading solar technology in Puducherry."
+  }
+};
+
+function toggleGeoapifyKeyModal(show = true) {
+  const modal = document.getElementById('geoapifyKeyModal');
+  const input = document.getElementById('geoapifyKeyInput');
+  if (modal) {
+    if (show) {
+      modal.classList.add('active');
+      if (input) input.value = geoapifyApiKey;
+    } else {
+      modal.classList.remove('active');
+    }
+  }
+}
+
+function saveGeoapifyKey() {
+  const input = document.getElementById('geoapifyKeyInput');
+  if (input) {
+    geoapifyApiKey = input.value.trim();
+    localStorage.setItem('ojas_geoapify_key', geoapifyApiKey);
+  }
+  toggleGeoapifyKeyModal(false);
+  identifyStateAndRecommendPanels(currentSolarLat, currentSolarLng);
+  if (window.StatusLog) {
+    window.StatusLog.log(geoapifyApiKey ? 'Geoapify API Key saved.' : 'Geoapify key cleared. Using satellite geocoder.', 'INFO', 'GEOAPIFY');
+  }
+}
+
+async function identifyStateAndRecommendPanels(lat, lng, locationHint = null) {
+  let stateName = null;
+
+  // 1. First attempt: Geoapify Reverse Geocoding API
+  if (geoapifyApiKey) {
+    try {
+      const geoRes = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lng}&apiKey=${geoapifyApiKey}`);
+      if (geoRes.ok) {
+        const geoData = await geoRes.json();
+        if (geoData.features && geoData.features.length > 0) {
+          const props = geoData.features[0].properties || {};
+          stateName = props.state || props.county || props.region;
+        }
+      }
+    } catch (e) {
+      console.warn('Geoapify Reverse Geocode call failed:', e);
+    }
+  }
+
+  // 2. Second attempt: Check locationHint string if provided from search
+  if (!stateName && locationHint) {
+    const hintLower = locationHint.toLowerCase();
+    for (const key in STATE_SOLAR_PANEL_DATA) {
+      if (hintLower.includes(key)) {
+        stateName = STATE_SOLAR_PANEL_DATA[key].state;
+        break;
+      }
+    }
+  }
+
+  // 3. Third attempt: OpenStreetMap Nominatim Reverse Geocoding fallback
+  if (!stateName) {
+    try {
+      const nomRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      if (nomRes.ok) {
+        const nomData = await nomRes.json();
+        if (nomData.address) {
+          stateName = nomData.address.state || nomData.address.state_district;
+        }
+      }
+    } catch (e) {
+      console.warn('Nominatim reverse geocode failed:', e);
+    }
+  }
+
+  // 4. Fourth attempt: Geographic coordinate proximity matching across Indian states
+  if (!stateName) {
+    stateName = matchStateByCoordinates(lat, lng);
+  }
+
+  // Clean and normalize state name
+  stateName = cleanStateName(stateName || 'West Bengal');
+  currentDetectedState = stateName;
+
+  renderStateSolarRecommendations(stateName);
+}
+
+function cleanStateName(raw) {
+  if (!raw) return 'West Bengal';
+  let s = raw.toLowerCase().trim();
+  s = s.replace('state of ', '').replace('union territory of ', '').replace('government of ', '').trim();
+  
+  if (s.includes('bengal')) return 'West Bengal';
+  if (s.includes('delhi')) return 'Delhi';
+  if (s.includes('maharashtra') || s.includes('mumbai') || s.includes('pune')) return 'Maharashtra';
+  if (s.includes('rajasthan') || s.includes('jaipur')) return 'Rajasthan';
+  if (s.includes('karnataka') || s.includes('bangalore') || s.includes('bengaluru')) return 'Karnataka';
+  if (s.includes('gujarat') || s.includes('ahmedabad')) return 'Gujarat';
+  if (s.includes('tamil') || s.includes('chennai')) return 'Tamil Nadu';
+  if (s.includes('telangana') || s.includes('hyderabad')) return 'Telangana';
+  if (s.includes('uttar pradesh') || s.includes('lucknow')) return 'Uttar Pradesh';
+  if (s.includes('madhya pradesh') || s.includes('bhopal') || s.includes('indore')) return 'Madhya Pradesh';
+  if (s.includes('kerala') || s.includes('kochi')) return 'Kerala';
+  if (s.includes('punjab') || s.includes('ludhiana')) return 'Punjab';
+  if (s.includes('haryana') || s.includes('gurgaon') || s.includes('gurugram')) return 'Haryana';
+  if (s.includes('bihar') || s.includes('patna')) return 'Bihar';
+  if (s.includes('odisha') || s.includes('orissa') || s.includes('bhubaneswar')) return 'Odisha';
+  if (s.includes('jharkhand') || s.includes('ranchi')) return 'Jharkhand';
+  if (s.includes('assam') || s.includes('guwahati')) return 'Assam';
+  if (s.includes('chhattisgarh') || s.includes('raipur')) return 'Chhattisgarh';
+  if (s.includes('andhra') || s.includes('visakhapatnam')) return 'Andhra Pradesh';
+  if (s.includes('himachal') || s.includes('shimla')) return 'Himachal Pradesh';
+  if (s.includes('uttarakhand') || s.includes('dehradun')) return 'Uttarakhand';
+  if (s.includes('goa')) return 'Goa';
+  if (s.includes('jammu') || s.includes('kashmir')) return 'Jammu & Kashmir';
+  if (s.includes('ladakh') || s.includes('leh')) return 'Ladakh';
+  if (s.includes('chandigarh')) return 'Chandigarh';
+  if (s.includes('puducherry') || s.includes('pondicherry')) return 'Puducherry';
+  if (s.includes('andaman')) return 'Andaman & Nicobar Islands';
+  if (s.includes('lakshadweep')) return 'Lakshadweep';
+  if (s.includes('sikkim')) return 'Sikkim';
+  if (s.includes('tripura')) return 'Tripura';
+  if (s.includes('meghalaya')) return 'Meghalaya';
+  if (s.includes('manipur')) return 'Manipur';
+  if (s.includes('nagaland')) return 'Nagaland';
+  if (s.includes('mizoram')) return 'Mizoram';
+  if (s.includes('arunachal')) return 'Arunachal Pradesh';
+  if (s.includes('dadra') || s.includes('daman') || s.includes('diu')) return 'Dadra & Nagar Haveli and Daman & Diu';
+
+  return raw;
+}
+
+function matchStateByCoordinates(lat, lng) {
+  // Coordinate bounding approximation across Indian states
+  if (lat > 32.0 && lng < 76.5) return 'Jammu & Kashmir';
+  if (lat > 32.0 && lng >= 76.5) return 'Ladakh';
+  if (lat >= 30.5 && lat <= 33.2 && lng >= 75.5 && lng <= 79.0) return 'Himachal Pradesh';
+  if (lat >= 29.5 && lat <= 32.5 && lng >= 73.8 && lng <= 76.9) return 'Punjab';
+  if (lat >= 27.6 && lat <= 30.9 && lng >= 74.4 && lng <= 77.6) return 'Haryana';
+  if (lat >= 28.3 && lat <= 28.9 && lng >= 76.8 && lng <= 77.4) return 'Delhi';
+  if (lat >= 28.7 && lat <= 31.5 && lng >= 77.5 && lng <= 81.1) return 'Uttarakhand';
+  if (lat >= 23.8 && lat <= 30.2 && lng >= 77.0 && lng <= 84.7) return 'Uttar Pradesh';
+  if (lat >= 23.0 && lat <= 30.2 && lng >= 69.5 && lng <= 78.3) return 'Rajasthan';
+  if (lat >= 20.1 && lat <= 24.7 && lng >= 68.1 && lng <= 74.5) return 'Gujarat';
+  if (lat >= 21.1 && lat <= 26.9 && lng >= 74.0 && lng <= 82.8) return 'Madhya Pradesh';
+  if (lat >= 24.3 && lat <= 27.5 && lng >= 83.3 && lng <= 88.3) return 'Bihar';
+  if (lat >= 21.9 && lat <= 25.3 && lng >= 83.3 && lng <= 87.9) return 'Jharkhand';
+  if (lat >= 21.5 && lat <= 27.2 && lng >= 85.8 && lng <= 89.9) return 'West Bengal';
+  if (lat >= 17.8 && lat <= 24.1 && lng >= 80.2 && lng <= 84.4) return 'Chhattisgarh';
+  if (lat >= 17.8 && lat <= 22.6 && lng >= 81.4 && lng <= 87.5) return 'Odisha';
+  if (lat >= 15.6 && lat <= 22.0 && lng >= 72.6 && lng <= 80.9) return 'Maharashtra';
+  if (lat >= 15.8 && lat <= 19.9 && lng >= 77.2 && lng <= 81.8) return 'Telangana';
+  if (lat >= 12.6 && lat <= 19.1 && lng >= 76.7 && lng <= 84.8) return 'Andhra Pradesh';
+  if (lat >= 11.5 && lat <= 18.5 && lng >= 74.0 && lng <= 78.6) return 'Karnataka';
+  if (lat >= 14.9 && lat <= 15.8 && lng >= 73.6 && lng <= 74.4) return 'Goa';
+  if (lat >= 8.3 && lat <= 12.8 && lng >= 74.8 && lng <= 77.5) return 'Kerala';
+  if (lat >= 8.1 && lat <= 13.6 && lng >= 76.2 && lng <= 80.3) return 'Tamil Nadu';
+  if (lat >= 25.5 && lat <= 28.2 && lng >= 89.7 && lng <= 96.0) return 'Assam';
+  if (lat >= 26.6 && lat <= 29.5 && lng >= 91.5 && lng <= 97.4) return 'Arunachal Pradesh';
+  if (lat >= 27.0 && lat <= 28.1 && lng >= 88.0 && lng <= 88.9) return 'Sikkim';
+  return 'West Bengal';
+}
+
+function renderStateSolarRecommendations(stateName) {
+  const normalizedKey = stateName.toLowerCase().trim();
+  const guide = STATE_SOLAR_PANEL_DATA[normalizedKey] || STATE_SOLAR_PANEL_DATA['west bengal'];
+
+  const nameEl = document.getElementById('advisorStateName');
+  const inlineEl = document.getElementById('advisorStateInlineText');
+  const rationaleEl = document.getElementById('advisorStateRationale');
+  const gridEl = document.getElementById('advisorPanelCardsGrid');
+
+  if (nameEl) nameEl.innerText = guide.state;
+  if (inlineEl) inlineEl.innerText = guide.state;
+  if (rationaleEl) rationaleEl.innerText = guide.rationale;
+
+  if (!gridEl) return;
+  gridEl.innerHTML = '';
+
+  const panelCount = guide.panels.length;
+  // If 1 panel, render full-width or centered nicely
+  if (panelCount === 1) {
+    gridEl.className = 'grid grid-cols-1 gap-5 mb-5';
+  } else {
+    gridEl.className = 'grid grid-cols-1 md:grid-cols-2 gap-5 mb-5';
+  }
+
+  guide.panels.forEach((p, idx) => {
+    const card = document.createElement('div');
+    const badgeBg = p.badgeColor === 'emerald' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' :
+                   p.badgeColor === 'cyan' ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30' :
+                   p.badgeColor === 'blue' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                   p.badgeColor === 'purple' ? 'bg-purple-500/10 text-purple-400 border-purple-500/30' :
+                   'bg-amber-500/10 text-amber-400 border-amber-500/30';
+
+    card.className = 'bg-slate-950/90 border border-slate-800 hover:border-slate-700 p-5 rounded-xl flex flex-col justify-between transition-all shadow-xl';
+    
+    card.innerHTML = `
+      <div>
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold border ${badgeBg}">
+            ${idx === 0 ? '<i class="fa-solid fa-star"></i>' : '<i class="fa-solid fa-code-compare"></i>'} ${p.badge}
+          </span>
+          <span class="text-[10px] font-mono text-slate-500 uppercase">ALMM Approved</span>
+        </div>
+
+        <div class="flex items-start gap-3 mb-3">
+          <div class="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl text-amber-400 shrink-0">
+            <i class="fa-solid ${p.name.includes('Bifacial') ? 'fa-clone text-emerald-400' : (p.name.includes('TOPCon') ? 'fa-bolt text-cyan-400' : (p.name.includes('Poly') ? 'fa-gem text-blue-400' : (p.name.includes('Thin') ? 'fa-layer-group text-purple-400' : 'fa-solar-panel text-amber-400')))}"></i>
+          </div>
+          <div>
+            <h4 class="text-lg font-bold text-slate-100 font-mono">${p.name}</h4>
+            <span class="text-xs font-mono text-slate-400 block">${p.name === 'TOPCon' ? 'N-Type Tunnel Oxide Silicon' : (p.name === 'Bifacial' ? 'Dual-Glass Albedo Capture' : (p.name === 'Polycrystalline' ? 'Multi-Crystalline Silicon' : (p.name === 'Thin-Film' ? 'CdTe / CIGS Thin Layers' : 'Single-Crystal Passivated Rear Cell')))}</span>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-300 mb-4 leading-relaxed font-sans">${p.whyBest}</p>
+
+        <!-- Technical Specification Pill Grid -->
+        <div class="grid grid-cols-2 gap-2 text-[11px] font-mono mb-4">
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <span class="text-[9px] text-slate-500 block uppercase">Efficiency</span>
+            <span class="text-emerald-400 font-bold">${p.efficiency}</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <span class="text-[9px] text-slate-500 block uppercase">Temp Coefficient</span>
+            <span class="text-cyan-300 font-bold">${p.tempCoeff}</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <span class="text-[9px] text-slate-500 block uppercase">Roof Footprint</span>
+            <span class="text-slate-200">${p.footprint}</span>
+          </div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <span class="text-[9px] text-slate-500 block uppercase">Recommended Surface</span>
+            <span class="text-slate-200 truncate" title="${p.bestRoof}">${p.bestRoof}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-900 flex items-center justify-between">
+        <span class="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+          <i class="fa-solid fa-circle-check text-emerald-400"></i> PM Surya Ghar 100% Eligible
+        </span>
+        <button type="button" onclick="applyRecommendedPanel('${p.type}', '${p.name}')" class="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-mono transition flex items-center gap-1.5">
+          <span>Apply to Calculator</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
+        </button>
+      </div>
+    `;
+
+    gridEl.appendChild(card);
+  });
+
+  if (window.StatusLog) {
+    window.StatusLog.log(`Identified State: [${guide.state.toUpperCase()}] via Geoapify — Rendered ${panelCount} benchmarked panel recommendation(s).`, 'SUCCESS', 'PANEL');
+  }
+}
+
+function applyRecommendedPanel(panelType, panelName) {
+  // Sync with AI kWh Calculator tab and Assessment tab
+  const kwhSelect = document.getElementById('kwhPanelTypeSelect');
+  if (kwhSelect) {
+    if (kwhSelect.querySelector(`option[value="${panelType}"]`)) {
+      kwhSelect.value = panelType;
+    }
+  }
+
+  const assessmentSelect = document.getElementById('inputPanelType');
+  if (assessmentSelect) {
+    if (assessmentSelect.querySelector(`option[value="${panelType}"]`)) {
+      assessmentSelect.value = panelType;
+    }
+  }
+
+  if (typeof updateKwhCalculation === 'function') {
+    updateKwhCalculation();
+  }
+  if (typeof calculateEstimation === 'function') {
+    calculateEstimation();
+  }
+
+  if (window.StatusLog) {
+    window.StatusLog.log(`Configured ${panelName} (${currentDetectedState} benchmark) across Solar Calculation engines.`, 'SUCCESS', 'PANEL');
+  }
+
+  alert(`Applied ${panelName} (Recommended for ${currentDetectedState}) to your solar calculation configuration!`);
+}
+
 /* District GIS Heatmap Dynamic Generator */
 function updateDistrictWards(districtName = 'Kolkata') {
   const grid = document.getElementById('wardHeatmapGrid');
@@ -2146,3 +3233,7 @@ window.jumpSolarPreset = jumpSolarPreset;
 window.updateSolarCoordinates = updateSolarCoordinates;
 window.initLiveIstSolarSimulator = initLiveIstSolarSimulator;
 window.initAiWeather = initAiWeather;
+window.toggleGeoapifyKeyModal = toggleGeoapifyKeyModal;
+window.saveGeoapifyKey = saveGeoapifyKey;
+window.identifyStateAndRecommendPanels = identifyStateAndRecommendPanels;
+window.applyRecommendedPanel = applyRecommendedPanel;
