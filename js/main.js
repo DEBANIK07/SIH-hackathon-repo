@@ -63,7 +63,7 @@ const translations = {
     wx_temp_note: "Panel Temperature Loss: ~3.8%",
     pipe_eyebrow: "Automated Technical Workflow",
     pipe_title: "End-to-End Rooftop Audit & Approval Pipeline",
-    pipe_desc: "OJAS automates all 6 critical technical stages — converting satellite coordinates into Single Line Diagrams (SLD), structural wind loads, and Discom feeder approvals.",
+    pipe_desc: "OJAS automates all 5 critical technical stages — converting satellite coordinates into Single Line Diagrams (SLD), structural wind loads, and Discom feeder approvals.",
     pipe_s1_t: "Multi-Spectral Surface Scan",
     pipe_s1_d: "Sub-meter optical satellite passes combined with ISRO Cartosat DEM contours to map roof pitch and surface texture.",
     pipe_s2_t: "Footprint & Boundary Extraction",
@@ -74,8 +74,7 @@ const translations = {
     pipe_s4_d: "Generates MNRE-standard Electrical Single Line Diagrams (SLD), string configuration, and DC combiner box ratings.",
     pipe_s5_t: "DISCOM Feeder Telemetry",
     pipe_s5_d: "Queries local Distribution Transformer (DT) capacity headroom to guarantee fast net-metering permit approval.",
-    pipe_s6_t: "PM Surya Ghar Portal Submission",
-    pipe_s6_d: "One-click auto-fill for National Portal application, generating verifiable geo-tagged audit dossiers for EPCs.",
+
     ai_eyebrow: "Explainable AI & Physics",
     ai_title: "Rooftop Solar Rating & AI Shading Engine",
     ai_desc: "OJAS evaluates roof physics with full explainability. Every suitability score transparently displays its mathematical parameters, structural weight constraints, and seasonal tilt loss.",
