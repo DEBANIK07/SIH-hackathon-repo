@@ -82,6 +82,9 @@
         <div class="tab-btn" id="tab-btn-roi" onclick="switchTab('roi')">
           <i class="fa-solid fa-hand-holding-dollar"></i> <span data-i18n="nav_roi">Subsidy ROI</span>
         </div>
+        <div class="tab-btn" id="tab-btn-video" onclick="switchTab('video')">
+          <i class="fa-solid fa-video"></i> <span>Live Video Scan</span>
+        </div>
         <div class="tab-btn" id="tab-btn-vendors" onclick="switchTab('vendors')">
           <i class="fa-solid fa-store"></i> <span data-i18n="nav_vendors">Empanelled Vendors</span>
         </div>
@@ -115,6 +118,7 @@
     <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('pipeline')">Pipeline</button>
     <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('ai')">Rooftop AI</button>
     <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('roi')">Subsidy ROI</button>
+    <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('video')"><i class="fa-solid fa-video"></i> Video</button>
     <button class="tab-btn text-xs py-1 px-2.5 whitespace-nowrap" onclick="switchTab('vendors')">Vendors</button>
   </div>
 
@@ -1357,7 +1361,291 @@
   </div>
 
   <!-- ========================================================================= -->
-  <!-- PAGE 5: EMPANELLED VENDORS TAB -->
+  <!-- PAGE 5: LIVE VIDEO TERRACE SCAN TAB -->
+  <!-- ========================================================================= -->
+  <div id="page-video" class="page-view">
+    <div class="wrap space-y-8" style="padding-top:32px;padding-bottom:60px">
+
+      <!-- HEADER -->
+      <div class="video-scan-hero">
+        <div class="video-scan-hero-inner">
+          <div class="eyebrow"><span class="pulse-dot"></span><span>SMART VISION LIVE TERRACE ANALYSIS &middot; REAL-TIME DETECTION</span></div>
+          <h2 class="video-scan-title">Live Terrace <span class="text-gradient-gold">Video Intelligence</span></h2>
+          <p class="video-scan-sub">Point your camera at any terrace or rooftop. Our vision detection engine will instantly detect structural parameters, shading obstructions, orientation, usable area, and solar installation suitability — all in real time.</p>
+        </div>
+        <div class="video-scan-badges">
+          <span class="vscan-badge vscan-badge-green"><i class="fa-solid fa-microchip"></i> Smart Vision Engine</span>
+          <span class="vscan-badge vscan-badge-cyan"><i class="fa-solid fa-bolt"></i> Real-Time Analysis</span>
+          <span class="vscan-badge vscan-badge-amber"><i class="fa-solid fa-solar-panel"></i> Solar Suitability</span>
+        </div>
+      </div>
+
+      <!-- MAIN GRID: Video + Detection Panel -->
+      <div class="video-detection-grid">
+
+        <!-- LEFT: Video Input Area -->
+        <div class="video-input-col">
+
+          <!-- Camera Preview / Idle State -->
+          <div class="video-camera-card" id="videoCameraCard">
+            <div class="video-preview-wrap">
+              <video id="terraceVideoPreview" class="video-preview" autoplay muted playsinline></video>
+              <canvas id="terraceAnalysisCanvas" class="video-analysis-canvas"></canvas>
+
+              <!-- Idle Overlay (shown before recording starts) -->
+              <div class="video-idle-overlay" id="videoIdleOverlay">
+                <div class="video-idle-icon-ring" id="videoStartBtn" onclick="toggleVideoCapture()" title="Start Live Terrace Scan">
+                  <i class="fa-solid fa-video video-idle-icon" id="videoStartIcon"></i>
+                </div>
+                <p class="video-idle-text">Tap the camera icon to begin<br><strong>live terrace scanning</strong></p>
+                <span class="video-idle-hint"><i class="fa-solid fa-circle-info"></i> Grant camera access when prompted</span>
+              </div>
+
+              <!-- Recording Indicator (shown while live) -->
+              <div class="video-rec-indicator" id="videoRecIndicator" style="display:none">
+                <span class="video-rec-dot"></span><span class="video-rec-label">LIVE SCAN</span>
+              </div>
+
+              <!-- Scan Grid Overlay -->
+              <div class="video-scan-grid" id="videoScanGrid" style="display:none">
+                <div class="vscan-corner vscan-tl"></div>
+                <div class="vscan-corner vscan-tr"></div>
+                <div class="vscan-corner vscan-bl"></div>
+                <div class="vscan-corner vscan-br"></div>
+                <div class="vscan-crosshair"></div>
+              </div>
+            </div>
+
+            <!-- Camera Controls -->
+            <div class="video-controls">
+              <button class="video-ctrl-btn video-ctrl-main" id="videoCaptureBtn" onclick="toggleVideoCapture()">
+                <i class="fa-solid fa-video" id="videoCaptureBtnIcon"></i>
+                <span id="videoCaptureBtnText">Start Live Scan</span>
+              </button>
+              <button class="video-ctrl-btn" id="videoSnapshotBtn" onclick="captureVideoSnapshot()" disabled title="Capture frame for deep analysis">
+                <i class="fa-solid fa-camera"></i> Snapshot Analysis
+              </button>
+              <button class="video-ctrl-btn" id="videoSwitchCamBtn" onclick="switchCamera()" disabled title="Toggle front/rear camera">
+                <i class="fa-solid fa-rotate"></i> Switch Cam
+              </button>
+              <button class="video-ctrl-btn video-ctrl-danger" id="videoStopBtn" onclick="stopVideoScan()" style="display:none">
+                <i class="fa-solid fa-stop"></i> Stop
+              </button>
+            </div>
+
+            <!-- Camera Status Strip -->
+            <div class="video-status-strip">
+              <span class="video-status-item" id="vcamFPS"><i class="fa-solid fa-gauge-high"></i> -- FPS</span>
+              <span class="video-status-item" id="vcamRes"><i class="fa-solid fa-expand"></i> -- × --</span>
+              <span class="video-status-item" id="vcamDevice"><i class="fa-solid fa-camera"></i> Initializing...</span>
+              <span class="video-status-item" id="vcamScanRate"><i class="fa-solid fa-brain"></i> Scan: Ready</span>
+            </div>
+          </div>
+
+          <!-- Parameter Inputs Panel -->
+          <div class="video-params-card">
+            <div class="video-params-hdr">
+              <h4><i class="fa-solid fa-sliders" style="color:var(--gold-warm)"></i> Known Context Parameters</h4>
+              <span class="video-params-badge">Boosts Detection Accuracy</span>
+            </div>
+            <p class="video-params-desc">Pre-fill any known values. The smart detection engine will cross-validate these against what it observes in the video feed for maximum accuracy.</p>
+            <div class="video-params-grid">
+              <div class="vp-field">
+                <label>Est. Roof Area (sq ft)</label>
+                <input type="number" id="vpRoofArea" class="form-input" placeholder="e.g. 800" min="50">
+              </div>
+              <div class="vp-field">
+                <label>Monthly Usage (kWh)</label>
+                <input type="number" id="vpMonthlyKwh" class="form-input" placeholder="e.g. 300" min="50">
+              </div>
+              <div class="vp-field">
+                <label>Rooftop Material</label>
+                <select id="vpMaterial" class="form-select">
+                  <option value="rcc">RCC Concrete (Flat)</option>
+                  <option value="tin">Galvanized Tin / Metal</option>
+                  <option value="tile">Clay / Mangalore Tiles</option>
+                  <option value="asbestos">Asbestos / Fiber Sheet</option>
+                  <option value="wood">Wood &amp; Steel Truss</option>
+                </select>
+              </div>
+              <div class="vp-field">
+                <label>Facing Direction</label>
+                <select id="vpFacing" class="form-select">
+                  <option value="auto">Auto-detect from video</option>
+                  <option value="south">South (Ideal)</option>
+                  <option value="south-east">South-East</option>
+                  <option value="south-west">South-West</option>
+                  <option value="east">East</option>
+                  <option value="west">West</option>
+                  <option value="north">North</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Real-Time Detection Results -->
+        <div class="video-results-col">
+
+          <!-- Live Detection Score -->
+          <div class="vdet-score-card" id="vdetScoreCard">
+            <div class="vdet-score-header">
+              <span class="vdet-score-label"><i class="fa-solid fa-brain"></i> Suitability Score</span>
+              <span class="vdet-score-live" id="vdetScoreLiveBadge"><span class="video-rec-dot" style="width:8px;height:8px"></span> Awaiting Feed</span>
+            </div>
+            <div class="vdet-score-gauge-wrap">
+              <svg class="vdet-gauge-svg" viewBox="0 0 200 110">
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="12" stroke-linecap="round"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="12" stroke-linecap="round"
+                  stroke-dasharray="251" id="vdetGaugeArc" stroke-dashoffset="251"/>
+                <defs>
+                  <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#10B981"/>
+                    <stop offset="50%" stop-color="#F59E0B"/>
+                    <stop offset="100%" stop-color="#EF4444"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="vdet-score-number" id="vdetScoreNum">--</div>
+              <div class="vdet-score-sublabel" id="vdetScoreVerdict">Start scan to detect</div>
+            </div>
+          </div>
+
+          <!-- Detection Parameters Grid -->
+          <div class="vdet-params-card">
+            <div class="vdet-params-hdr">
+              <span><i class="fa-solid fa-magnifying-glass-chart" style="color:var(--cyan)"></i> Detected Parameters</span>
+              <span class="vdet-params-timestamp" id="vdetTimestamp">--:--:-- IST</span>
+            </div>
+            <div class="vdet-params-grid">
+              <div class="vdet-param-item" id="vdp-usable">
+                <div class="vdp-icon" style="background:rgba(16,185,129,0.12);color:#10B981"><i class="fa-solid fa-ruler-combined"></i></div>
+                <div class="vdp-body">
+                  <span class="vdp-label">Estimated Usable Area</span>
+                  <span class="vdp-value" id="vdpUsableArea">Detecting...</span>
+                </div>
+              </div>
+              <div class="vdet-param-item" id="vdp-shade">
+                <div class="vdp-icon" style="background:rgba(245,158,11,0.12);color:#F59E0B"><i class="fa-solid fa-cloud-sun"></i></div>
+                <div class="vdp-body">
+                  <span class="vdp-label">Shading / Obstruction Loss</span>
+                  <span class="vdp-value" id="vdpShadeLoss">Detecting...</span>
+                </div>
+              </div>
+              <div class="vdet-param-item" id="vdp-orient">
+                <div class="vdp-icon" style="background:rgba(6,182,212,0.12);color:#06B6D4"><i class="fa-solid fa-compass"></i></div>
+                <div class="vdp-body">
+                  <span class="vdp-label">Orientation / Azimuth</span>
+                  <span class="vdp-value" id="vdpOrientation">Detecting...</span>
+                </div>
+              </div>
+              <div class="vdet-param-item" id="vdp-material">
+                <div class="vdp-icon" style="background:rgba(139,92,246,0.12);color:#A78BFA"><i class="fa-solid fa-layer-group"></i></div>
+                <div class="vdp-body">
+                  <span class="vdp-label">Surface Material</span>
+                  <span class="vdp-value" id="vdpMaterial">Detecting...</span>
+                </div>
+              </div>
+              <div class="vdet-param-item" id="vdp-tilt">
+                <div class="vdp-icon" style="background:rgba(248,113,113,0.12);color:#F87171"><i class="fa-solid fa-angle-up"></i></div>
+                <div class="vdp-body">
+                  <span class="vdp-label">Estimated Tilt Angle</span>
+                  <span class="vdp-value" id="vdpTilt">Detecting...</span>
+                </div>
+              </div>
+              <div class="vdet-param-item" id="vdp-capacity">
+                <div class="vdp-icon" style="background:rgba(255,184,0,0.12);color:#FFB800"><i class="fa-solid fa-solar-panel"></i></div>
+                <div class="vdp-body">
+                  <span class="vdp-label">Projected Capacity</span>
+                  <span class="vdp-value" id="vdpCapacity">Detecting...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Smart Recommendation Box -->
+          <div class="vdet-recommendation" id="vdetRecommendation">
+            <div class="vdet-rec-header">
+              <i class="fa-solid fa-lightbulb vdet-rec-icon"></i>
+              <span class="vdet-rec-title">Smart Solution Recommendation</span>
+            </div>
+            <div class="vdet-rec-body" id="vdetRecBody">
+              <p id="vdetRecText">Start the live scan and point the camera at a rooftop or terrace. The detection engine will analyse structural parameters and recommend the optimal solar installation solution.</p>
+            </div>
+            <div class="vdet-rec-actions" id="vdetRecActions" style="display:none">
+              <button class="btn-primary text-xs" onclick="applyDetectionToAssessment()"><i class="fa-solid fa-arrow-right"></i> Apply to Assessment</button>
+              <button class="video-ctrl-btn text-xs" onclick="exportVideoReport()"><i class="fa-solid fa-download"></i> Export Report</button>
+            </div>
+          </div>
+
+          <!-- Detection Confidence Breakdown -->
+          <div class="vdet-confidence-card" id="vdetConfCard" style="display:none">
+            <div class="vdet-params-hdr">
+              <span><i class="fa-solid fa-chart-bar" style="color:var(--gold-warm)"></i> Detection Confidence Breakdown</span>
+            </div>
+            <div class="space-y-3" style="margin-top:12px">
+              <div class="vdet-conf-row">
+                <span class="vdet-conf-label">Area Estimation Accuracy</span>
+                <div class="vdet-conf-bar-wrap"><div class="vdet-conf-bar" id="vconfAreaBar" style="width:0%;background:#10B981"></div></div>
+                <span class="vdet-conf-pct" id="vconfAreaPct">0%</span>
+              </div>
+              <div class="vdet-conf-row">
+                <span class="vdet-conf-label">Shading Detection Accuracy</span>
+                <div class="vdet-conf-bar-wrap"><div class="vdet-conf-bar" id="vconfShadeBar" style="width:0%;background:#F59E0B"></div></div>
+                <span class="vdet-conf-pct" id="vconfShadePct">0%</span>
+              </div>
+              <div class="vdet-conf-row">
+                <span class="vdet-conf-label">Material Classification</span>
+                <div class="vdet-conf-bar-wrap"><div class="vdet-conf-bar" id="vconfMatBar" style="width:0%;background:#A78BFA"></div></div>
+                <span class="vdet-conf-pct" id="vconfMatPct">0%</span>
+              </div>
+              <div class="vdet-conf-row">
+                <span class="vdet-conf-label">Orientation Assessment</span>
+                <div class="vdet-conf-bar-wrap"><div class="vdet-conf-bar" id="vconfOrientBar" style="width:0%;background:#06B6D4"></div></div>
+                <span class="vdet-conf-pct" id="vconfOrientPct">0%</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- HOW IT WORKS STRIP -->
+      <div class="vscan-how-strip">
+        <div class="vscan-how-card">
+          <div class="vscan-how-num">01</div>
+          <i class="fa-solid fa-video" style="color:var(--gold-warm);font-size:22px"></i>
+          <h5>Start Camera</h5>
+          <p>Click the video icon and grant camera permission to begin the live feed.</p>
+        </div>
+        <div class="vscan-how-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="vscan-how-card">
+          <div class="vscan-how-num">02</div>
+          <i class="fa-solid fa-house-crack" style="color:var(--green);font-size:22px"></i>
+          <h5>Point at Terrace</h5>
+          <p>Aim the camera at any rooftop or terrace. Keep it steady for best results.</p>
+        </div>
+        <div class="vscan-how-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="vscan-how-card">
+          <div class="vscan-how-num">03</div>
+          <i class="fa-solid fa-brain" style="color:var(--cyan);font-size:22px"></i>
+          <h5>Smart Analysis</h5>
+          <p>The vision engine detects area, shading, tilt, material, and orientation in real-time.</p>
+        </div>
+        <div class="vscan-how-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="vscan-how-card">
+          <div class="vscan-how-num">04</div>
+          <i class="fa-solid fa-solar-panel" style="color:var(--gold-warm);font-size:22px"></i>
+          <h5>Get Solution</h5>
+          <p>Receive instant solar installation recommendations tailored to that specific terrace.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- PAGE 6: EMPANELLED VENDORS TAB -->
   <!-- ========================================================================= -->
   <div id="page-vendors" class="page-view">
     <div class="wrap space-y-8">
@@ -1531,6 +1819,7 @@
   <script src="js/environmental.js"></script>
   <script src="js/map.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/video-scan.js"></script>
 
   <!-- OJAS v3.0 — Theme Toggle, Accordion, Results Panel, Stat Sync -->
   <script>
