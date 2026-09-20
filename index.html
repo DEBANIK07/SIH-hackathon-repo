@@ -339,16 +339,20 @@
                 <span id="addressStatusText" class="flex items-center gap-1.5" style="color:var(--gold-warm)"><i
                     class="fa-solid fa-circle-info" style="font-size:10px"></i> Press Enter or Use My Location to load
                   rooftop</span>
-                <div class="flex items-center gap-1.5">
-                  <span style="color:var(--text-faint);font-size:10px;font-weight:600">QUICK:</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span style="color:var(--text-faint);font-size:10px;font-weight:600">QUICK PRESETS:</span>
+                  <button type="button" class="preset-pill text-amber-300 border-amber-500/30"
+                    onclick="selectSuggestion(22.5726,88.3639,'Park Street, Kolkata, West Bengal')">Kolkata</button>
+                  <button type="button" class="preset-pill text-emerald-400 border-emerald-500/30"
+                    onclick="selectSuggestion(23.3322,86.3652,'Purulia, West Bengal')">Purulia (10/10)</button>
+                  <button type="button" class="preset-pill text-amber-300 border-amber-500/30"
+                    onclick="selectSuggestion(23.6889,86.9661,'Durgapur, Paschim Bardhaman')">Durgapur</button>
                   <button type="button" class="preset-pill"
-                    onclick="selectSuggestion(21.1458,79.0882,'Nagpur, Maharashtra')">Nagpur</button>
+                    onclick="selectSuggestion(27.0410,88.2663,'Darjeeling, West Bengal')">Darjeeling</button>
                   <button type="button" class="preset-pill"
                     onclick="selectSuggestion(28.6139,77.2090,'Connaught Place, New Delhi')">Delhi</button>
                   <button type="button" class="preset-pill"
                     onclick="selectSuggestion(26.9124,75.7873,'Jaipur, Rajasthan')">Jaipur</button>
-                  <button type="button" class="preset-pill"
-                    onclick="selectSuggestion(12.9716,77.5946,'MG Road, Bengaluru')">Bengaluru</button>
                 </div>
               </div>
             </div>
@@ -452,7 +456,7 @@
                 <div class="grid grid-cols-2 gap-4">
                   <div class="form-group"><label class="form-label" data-i18n="label_house_area">Total Rooftop (sq
                       ft)</label><input type="number" id="inputHouseArea" class="form-input" value="1800" min="200"
-                      max="20000" oninput="calculateEstimation()"></div>
+                      max="20000" oninput="handleHouseAreaInput()"></div>
                   <div class="form-group"><label class="form-label" data-i18n="label_solar_area">Solar Install (sq
                       ft)</label><input type="number" id="inputSolarArea" class="form-input" value="650" min="100"
                       max="10000" oninput="calculateEstimation()"></div>
@@ -874,66 +878,104 @@
           mathematical parameters, structural weight constraints, and seasonal tilt loss.
         </p>
 
+        <!-- West Bengal District Detection Banner & Selector -->
+        <div class="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 mt-6 mb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs font-mono text-slate-400 font-semibold uppercase">WEST BENGAL SOLAR MATRIX:</span>
+            <span id="aiDetectedDistrictTag" class="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full flex items-center gap-1.5">
+              <i class="fa-solid fa-location-dot text-amber-400"></i> <span id="aiDetectedDistrictText">Kolkata (9.0/10)</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-xs font-mono">
+            <label for="aiWbDistrictDropdown" class="text-slate-400 text-[11px] font-semibold"><i class="fa-solid fa-filter text-amber-500 mr-1"></i>Select WB District:</label>
+            <select id="aiWbDistrictDropdown" class="bg-slate-950 border border-slate-700 text-amber-300 text-xs rounded-lg px-3 py-1.5 font-mono focus:outline-none focus:border-amber-500 cursor-pointer" onchange="selectWestBengalDistrict(this.value)">
+              <!-- Populated dynamically with 27 West Bengal districts -->
+            </select>
+          </div>
+        </div>
+
         <!-- Gauge & Parameters -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-4">
           <div
             class="lg:col-span-4 bg-slate-900/90 border border-slate-800 p-8 rounded-xl flex flex-col items-center justify-center text-center">
-            <div class="relative w-40 h-40 mb-4 flex items-center justify-center">
+            <div class="relative w-44 h-44 mb-4 flex items-center justify-center">
               <svg class="w-full h-full -rotate-90" viewBox="0 0 160 160">
                 <circle cx="80" cy="80" r="68" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="10" />
-                <circle cx="80" cy="80" r="68" fill="none" stroke="#10B981" stroke-width="10" stroke-linecap="round"
-                  stroke-dasharray="427" stroke-dashoffset="65" />
+                <circle id="aiGaugeCircle" cx="80" cy="80" r="68" fill="none" stroke="#10B981" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="427" stroke-dashoffset="42.7" style="transition: stroke-dashoffset 0.8s ease, stroke 0.5s ease;" />
               </svg>
               <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span class="text-4xl font-bold font-mono text-slate-100">8.6</span>
-                <span class="text-[11px] font-mono text-slate-500 uppercase">Out of 10 Score</span>
+                <span id="aiGaugeScore" class="text-5xl font-bold font-mono text-slate-100">9.0</span>
+                <span id="aiGaugeSub" class="text-[11px] font-mono text-slate-400 uppercase mt-0.5">Out of 10 Score</span>
+                <span id="aiGaugeDistrictLabel" class="text-[10px] font-mono text-amber-400 mt-0.5 font-semibold">Kolkata District</span>
               </div>
             </div>
-            <span
-              class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold px-3 py-1 rounded-full">
+            <span id="aiGaugeBadge"
+              class="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
               <i class="fa-solid fa-circle-check"></i> HIGHLY RECOMMENDED FOR PV
             </span>
           </div>
 
-          <!-- Factor Progress Bars -->
+          <!-- Factor Progress Bars & Explainability Cards -->
           <div class="lg:col-span-8 space-y-4 justify-center flex flex-col">
             <div>
               <div class="flex justify-between text-sm font-mono mb-1">
                 <span class="text-slate-400 font-bold">Effective Solar Insolation Exposure</span>
-                <span class="text-emerald-400 font-bold">94%</span>
+                <span id="aiInsolationVal" class="text-emerald-400 font-bold">94%</span>
               </div>
               <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full bg-emerald-500 rounded-full" style="width: 94%;"></div>
+                <div id="aiInsolationBar" class="h-full bg-emerald-500 rounded-full transition-all duration-700" style="width: 94%;"></div>
               </div>
             </div>
 
             <div>
               <div class="flex justify-between text-sm font-mono mb-1">
                 <span class="text-slate-400 font-bold">Azimuth &amp; Tilt Alignment Offset</span>
-                <span class="text-emerald-400 font-bold">91%</span>
+                <span id="aiAzimuthVal" class="text-emerald-400 font-bold">91%</span>
               </div>
               <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full bg-emerald-500 rounded-full" style="width: 91%;"></div>
+                <div id="aiAzimuthBar" class="h-full bg-emerald-500 rounded-full transition-all duration-700" style="width: 91%;"></div>
               </div>
             </div>
 
             <div>
               <div class="flex justify-between text-sm font-mono mb-1">
                 <span class="text-slate-400 font-bold">Parapet &amp; Obstruction Shade Loss</span>
-                <span class="text-amber-400 font-bold">- 6.5%</span>
+                <span id="aiShadeVal" class="text-amber-400 font-bold">- 6.5%</span>
               </div>
               <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full bg-amber-500 rounded-full" style="width: 18%;"></div>
+                <div id="aiShadeBar" class="h-full bg-amber-500 rounded-full transition-all duration-700" style="width: 18%;"></div>
               </div>
             </div>
 
             <div>
               <div class="flex justify-between text-sm font-mono mb-1">
                 <span class="text-slate-400 font-bold">Local DISCOM Feeder Net-Metering Room</span>
-                <span class="text-cyan-400 font-bold">78% Headroom</span>
+                <span id="aiDiscomVal" class="text-cyan-400 font-bold">82% Headroom</span>
               </div>
               <div class="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                <div class="h-full bg-cyan-500 rounded-full" style="width: 78%;"></div>
+                <div id="aiDiscomBar" class="h-full bg-cyan-500 rounded-full transition-all duration-700" style="width: 82%;"></div>
+              </div>
+            </div>
+
+            <!-- West Bengal Feasibility Matrix Explainability Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+              <div class="bg-slate-900/90 border border-amber-500/25 p-3.5 rounded-xl">
+                <div class="flex items-center gap-1.5 text-[11px] font-mono font-bold text-amber-400 uppercase mb-1">
+                  <i class="fa-solid fa-bolt text-amber-400"></i> Key Driving Force
+                </div>
+                <p id="aiKeyDrivingForce" class="text-xs text-slate-300 leading-relaxed font-sans">
+                  Streamlined CESC net-metering execution and highest local vendor density.
+                </p>
+              </div>
+              <div class="bg-slate-900/90 border border-rose-500/25 p-3.5 rounded-xl">
+                <div class="flex items-center gap-1.5 text-[11px] font-mono font-bold text-rose-400 uppercase mb-1">
+                  <i class="fa-solid fa-triangle-exclamation text-rose-400"></i> Primary Installation / Grid Constraint
+                </div>
+                <p id="aiConstraint" class="text-xs text-slate-300 leading-relaxed font-sans">
+                  Serious shadow clipping from skyscrapers and packed urban roofing.
+                </p>
               </div>
             </div>
           </div>

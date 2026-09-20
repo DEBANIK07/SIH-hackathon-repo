@@ -349,8 +349,18 @@ window.addEventListener('load', () => {
   initWardHeatmap();
   initLiveIstSolarSimulator();
   initAiWeather();
+  initWestBengalMatrix();
   calculateEstimation();
   checkBackendHealth();
+
+  const houseInput = document.getElementById('inputHouseArea');
+  if (houseInput) {
+    houseInput.addEventListener('input', handleHouseAreaInput);
+  }
+  const solarInput = document.getElementById('inputSolarArea');
+  if (solarInput) {
+    solarInput.addEventListener('input', calculateEstimation);
+  }
 });
 
 // Tab Switcher
@@ -582,6 +592,606 @@ const DISTRICT_CLIMATE_DATABASE = {
   }
 };
 
+// =========================================================================
+// OFFICIAL WEST BENGAL SOLAR FEASIBILITY MATRIX & DISTRICT AI ENGINE
+// Complete district-wise rating out of 10 mapping daily sunlight, grid efficiency & installation conditions
+// =========================================================================
+const WEST_BENGAL_DISTRICTS = {
+  purulia: {
+    district: "Purulia",
+    rating: 10.0,
+    drivingForce: "Highest peak sunlight hours and solar irradiance in the state.",
+    constraint: "High concentration of deep rural locations impacts maintenance timelines.",
+    lat: 23.3322,
+    lng: 86.3652,
+    keywords: ["purulia", "raghunathpur", "kashipur", "manbazar", "baghmundi", "balrampur", "jhalda", "arsha", "barabazar", "puncha", "neturia", "para", "santaldih", "hura", "bandwan", "joypur purulia"],
+    insolation: 98,
+    alignment: 95,
+    shadeLoss: 3.0,
+    discomHeadroom: 88,
+    badge: "OPTIMAL / MAXIMUM SOLAR YIELD"
+  },
+  bankura: {
+    district: "Bankura",
+    rating: 9.5,
+    drivingForce: "Massive state-backed utility solar projects ensure highly skilled labor pools.",
+    constraint: "High open heat scales can mildly lower cheap inverter efficiency.",
+    lat: 23.2324,
+    lng: 87.0715,
+    keywords: ["bankura", "bishnupur", "sonamukhi", "khatra", "ranibandh", "mejia", "patrasayer", "kotulpur", "simlapal", "onda", "taldangra", "chhatna", "gangajalghati", "barjora", "indpur", "saltora"],
+    insolation: 96,
+    alignment: 94,
+    shadeLoss: 4.2,
+    discomHeadroom: 85,
+    badge: "EXCELLENT / HIGHLY RECOMMENDED FOR PV"
+  },
+  paschim_bardhaman: {
+    district: "Paschim Bardhaman",
+    rating: 9.5,
+    drivingForce: "Durgapur-Asansol industrial belt has unmatched grid infrastructure & parts supply.",
+    constraint: "High fly-ash and industrial soot necessitate monthly panel washes.",
+    lat: 23.6889,
+    lng: 86.9661,
+    keywords: ["paschim bardhaman", "paschim burdwan", "west bardhaman", "west burdwan", "asansol", "durgapur", "raniganj", "andal", "jamuria", "pandabeswar", "kulti", "kulthi", "chittaranjan", "barabani", "salanpur"],
+    insolation: 95,
+    alignment: 93,
+    shadeLoss: 4.5,
+    discomHeadroom: 86,
+    badge: "EXCELLENT / HIGHLY RECOMMENDED FOR PV"
+  },
+  kolkata: {
+    district: "Kolkata",
+    rating: 9.0,
+    drivingForce: "Streamlined CESC net-metering execution and highest local vendor density.",
+    constraint: "Serious shadow clipping from skyscrapers and packed urban roofing.",
+    lat: 22.5726,
+    lng: 88.3639,
+    keywords: ["kolkata", "calcutta", "park street", "salt lake", "bidhannagar", "new town", "alipore", "ballygunge", "bhawanipore", "jadavpur", "tollygunge", "dum dum", "dumdum", "shyambazar", "esplanade", "sealdah", "howrah bridge", "garia", "behala", "kasba", "dhakuria", "barisha"],
+    insolation: 94,
+    alignment: 91,
+    shadeLoss: 6.5,
+    discomHeadroom: 82,
+    badge: "HIGHLY RECOMMENDED FOR PV"
+  },
+  howrah: {
+    district: "Howrah",
+    rating: 9.0,
+    drivingForce: "Direct proximity to major commercial distributors driving down freight costs.",
+    constraint: "Highly congested multi-owner rooftops require precise structural layouts.",
+    lat: 22.5958,
+    lng: 88.2636,
+    keywords: ["howrah", "haora", "uluberia", "bally", "amta", "domjur", "sankrail", "panchla", "bauria", "shibpur", "liluah", "belur", "salap", "mourigram", "bagnan", "shyampur"],
+    insolation: 93,
+    alignment: 91,
+    shadeLoss: 6.8,
+    discomHeadroom: 80,
+    badge: "HIGHLY RECOMMENDED FOR PV"
+  },
+  north_24_parganas: {
+    district: "North 24 Parganas",
+    rating: 8.5,
+    drivingForce: "Widespread premium consumer demand and maximum residential adoption rates.",
+    constraint: "Rapid commercial construction triggers new high-rise shadow blocks.",
+    lat: 22.7230,
+    lng: 88.4800,
+    keywords: ["north 24 parganas", "north 24-parganas", "uttar 24 pargana", "barasat", "barrackpore", "naihati", "bhatpara", "halisahar", "kanchrapara", "madhyamgram", "habra", "rajarhat", "panihati", "kamarhati", "titagarh", "khardah", "sodepur", "ashoknagar", "gaighata", "bongaon"],
+    insolation: 92,
+    alignment: 90,
+    shadeLoss: 7.2,
+    discomHeadroom: 78,
+    badge: "HIGHLY RECOMMENDED FOR PV"
+  },
+  hooghly: {
+    district: "Hooghly",
+    rating: 8.5,
+    drivingForce: "Abundant flat concrete rooftops and exceptional, reliable grid parameters.",
+    constraint: "Standard processing delays inside suburban electricity offices.",
+    lat: 22.9012,
+    lng: 88.3968,
+    keywords: ["hooghly", "hugli", "chinsurah", "chuchura", "chandannagar", "serampore", "srirampur", "bhandarhati", "singur", "tarakeswar", "dhaniakhali", "pandua", "balagarh", "uttarpara", "rishra", "konnagar", "baidyabati", "bhadreswar", "dankuni", "mogra"],
+    insolation: 92,
+    alignment: 89,
+    shadeLoss: 6.0,
+    discomHeadroom: 76,
+    badge: "HIGHLY RECOMMENDED FOR PV"
+  },
+  purba_bardhaman: {
+    district: "Purba Bardhaman",
+    rating: 8.5,
+    drivingForce: "Expansive open rural/semi-urban structures with high year-round sun clearance.",
+    constraint: "High agricultural crop-residue smoke during winter creates mild dust.",
+    lat: 23.2324,
+    lng: 87.8615,
+    keywords: ["purba bardhaman", "purba burdwan", "east bardhaman", "east burdwan", "bardhaman", "burdwan", "katwa", "kalna", "memari", "bhatar", "galsi", "jamalpur", "monteshwar", "purbasthali", "raina", "khandaghosh", "ausgram"],
+    insolation: 91,
+    alignment: 90,
+    shadeLoss: 6.2,
+    discomHeadroom: 77,
+    badge: "HIGHLY RECOMMENDED FOR PV"
+  },
+  nadia: {
+    district: "Nadia",
+    rating: 8.0,
+    drivingForce: "Extensive rooftop space and high demand due to deep penetration of solar pumps.",
+    constraint: "Minor backlogs in the supply of bidirectional grid meters.",
+    lat: 23.4013,
+    lng: 88.5013,
+    keywords: ["nadia", "krishnanagar", "kalyani", "ranaghat", "nabadwip", "santipur", "shantipur", "chakdaha", "tehatta", "chapra", "nakashipara", "kaliganj", "debagram", "karimpur", "bethuadahari", "haringhata"],
+    insolation: 89,
+    alignment: 88,
+    shadeLoss: 6.8,
+    discomHeadroom: 74,
+    badge: "STRONGLY RECOMMENDED FOR PV"
+  },
+  murshidabad: {
+    district: "Murshidabad",
+    rating: 8.0,
+    drivingForce: "Large ancestral and multi-story homes provide massive shadow-free footprints.",
+    constraint: "Longer logistical travel windows for tier-1 structural engineers.",
+    lat: 24.0984,
+    lng: 88.2680,
+    keywords: ["murshidabad", "baharampur", "berhampore", "lalbagh", "domkal", "kandi", "jiaganj", "azimganj", "beldanga", "hariharpara", "jalangi", "nowda", "nabagram", "lalgola"],
+    insolation: 88,
+    alignment: 87,
+    shadeLoss: 6.9,
+    discomHeadroom: 73,
+    badge: "STRONGLY RECOMMENDED FOR PV"
+  },
+  jangipur: {
+    district: "Jangipur",
+    rating: 8.0,
+    drivingForce: "Newly independent administrative center driving localized institutional solar projects.",
+    constraint: "Local warehousing of replacement electronics is currently growing.",
+    lat: 24.4633,
+    lng: 88.0689,
+    keywords: ["jangipur", "raghunathganj", "sagardighi", "suti", "samserganj", "farakka"],
+    insolation: 88,
+    alignment: 87,
+    shadeLoss: 7.0,
+    discomHeadroom: 72,
+    badge: "STRONGLY RECOMMENDED FOR PV"
+  },
+  arambagh: {
+    district: "Arambagh",
+    rating: 8.0,
+    drivingForce: "High rural grid expansion and wide roof access across newly structured blocks.",
+    constraint: "Minimal localized presence of tier-1 corporate contractors.",
+    lat: 22.8837,
+    lng: 87.7816,
+    keywords: ["arambagh", "arambag", "goghat", "khanakul", "pursurah"],
+    insolation: 88,
+    alignment: 86,
+    shadeLoss: 6.5,
+    discomHeadroom: 72,
+    badge: "STRONGLY RECOMMENDED FOR PV"
+  },
+  basirhat: {
+    district: "Basirhat",
+    rating: 7.5,
+    drivingForce: "Emerging semi-urban real estate demands decentralized rooftop microgrids.",
+    constraint: "High humidity levels require strict anti-corrosive wiring structures.",
+    lat: 22.6574,
+    lng: 88.8911,
+    keywords: ["basirhat", "baduria", "taki", "hasnabad", "hingalganj", "minakhan", "sandeshkhali", "haroa", "deganga", "swarupnagar"],
+    insolation: 86,
+    alignment: 85,
+    shadeLoss: 7.5,
+    discomHeadroom: 70,
+    badge: "RECOMMENDED FOR PV"
+  },
+  purba_medinipur: {
+    district: "Purba Medinipur",
+    rating: 7.5,
+    drivingForce: "Consistent open sun paths along coastal and rural properties.",
+    constraint: "Saline sea-breeze requires high-grade, hot-dip galvanized mounting structures.",
+    lat: 22.2981,
+    lng: 87.9220,
+    keywords: ["purba medinipur", "purba midnapore", "east medinipur", "east midnapore", "tamluk", "haldia", "digha", "contai", "kanthi", "mahisadal", "panskura", "kolaghat", "nandigram", "egra", "ramnagar", "mandarmani"],
+    insolation: 87,
+    alignment: 85,
+    shadeLoss: 7.0,
+    discomHeadroom: 71,
+    badge: "RECOMMENDED FOR PV"
+  },
+  paschim_medinipur: {
+    district: "Paschim Medinipur",
+    rating: 7.5,
+    drivingForce: "Massive property layouts around Kharagpur-Midnapore allow ground-mount arrays.",
+    constraint: "Massive physical geography increases on-site transport fees.",
+    lat: 22.4257,
+    lng: 87.3199,
+    keywords: ["paschim medinipur", "paschim midnapore", "west medinipur", "west midnapore", "midnapore", "medinipur", "kharagpur", "ghatal", "dantan", "debra", "keshiary", "pingla", "sabang", "chandrakona", "garhbeta", "salboni"],
+    insolation: 87,
+    alignment: 84,
+    shadeLoss: 6.8,
+    discomHeadroom: 70,
+    badge: "RECOMMENDED FOR PV"
+  },
+  birbhum: {
+    district: "Birbhum",
+    rating: 7.5,
+    drivingForce: "Strong solar generation numbers matching western plateau baseline averages.",
+    constraint: "Slower deployment of direct retail customer support by Kolkata firms.",
+    lat: 23.9054,
+    lng: 87.5246,
+    keywords: ["birbhum", "suri", "bolpur", "santiniketan", "rampurhat", "sainthia", "dubrajpur", "nalhati", "murarai", "ilambazar", "labpur", "nanoor", "mayureswar"],
+    insolation: 86,
+    alignment: 84,
+    shadeLoss: 6.5,
+    discomHeadroom: 70,
+    badge: "RECOMMENDED FOR PV"
+  },
+  jhargram: {
+    district: "Jhargram",
+    rating: 7.5,
+    drivingForce: "Abundant open clear spaces with minimal tall block interruptions.",
+    constraint: "Limited presence of empanelled PM Surya Ghar vendors locally.",
+    lat: 22.4550,
+    lng: 86.9920,
+    keywords: ["jhargram", "belpahari", "binpur", "jamboni", "gopiballavpur", "nayagram", "sankrail jhargram"],
+    insolation: 86,
+    alignment: 84,
+    shadeLoss: 6.4,
+    discomHeadroom: 69,
+    badge: "RECOMMENDED FOR PV"
+  },
+  malda: {
+    district: "Malda",
+    rating: 7.0,
+    drivingForce: "Solid sun availability ensuring steady, baseline daily power output.",
+    constraint: "Low-lying areas require elevated rooftop scaffolding due to seasonal rains.",
+    lat: 25.0108,
+    lng: 88.1411,
+    keywords: ["malda", "maldah", "english bazar", "englishbazar", "old malda", "chanchal", "harishchandrapur", "gazole", "ratua", "kaliachak", "manikchak", "habibpur", "bamangola"],
+    insolation: 84,
+    alignment: 82,
+    shadeLoss: 8.0,
+    discomHeadroom: 68,
+    badge: "MODERATELY SUITABLE FOR PV"
+  },
+  sundarban: {
+    district: "Sundarban",
+    rating: 7.0,
+    drivingForce: "Crucial requirement for hybrid solar systems with battery storage over direct grid power.",
+    constraint: "Severe cyclonic hazards demand structural wind-proofing up to 180 km/h.",
+    lat: 21.8745,
+    lng: 88.1857,
+    keywords: ["sundarban", "sundarbans", "kakdwip", "gosaba", "canning", "basanti", "namkhana", "sagar island", "gangasagar", "patharpratima", "kultali"],
+    insolation: 85,
+    alignment: 81,
+    shadeLoss: 8.2,
+    discomHeadroom: 65,
+    badge: "MODERATELY SUITABLE FOR PV"
+  },
+  south_24_parganas: {
+    district: "South 24 Parganas",
+    rating: 7.0,
+    drivingForce: "Growing adoption in suburban residential complexes.",
+    constraint: "Heavy coastal moisture demands IP66/IP67 rated solar inverters.",
+    lat: 22.3644,
+    lng: 88.4378,
+    keywords: ["south 24 parganas", "south 24-parganas", "dakshin 24 pargana", "baruipur", "sonarpur", "diamond harbour", "budge budge", "maheshtala", "jayanagar", "falta", "magrahat", "kulpi"],
+    insolation: 84,
+    alignment: 82,
+    shadeLoss: 7.8,
+    discomHeadroom: 68,
+    badge: "MODERATELY SUITABLE FOR PV"
+  },
+  uttar_dinajpur: {
+    district: "Uttar Dinajpur",
+    rating: 7.0,
+    drivingForce: "High local utility tariffs make solar conversions highly economical.",
+    constraint: "Higher component transit costs from major trading cities.",
+    lat: 25.6200,
+    lng: 88.1200,
+    keywords: ["uttar dinajpur", "north dinajpur", "raiganj", "islampur", "kaliaganj", "dalkhola", "itahar", "hemtabad", "karandighi", "goalpokhar"],
+    insolation: 83,
+    alignment: 81,
+    shadeLoss: 8.0,
+    discomHeadroom: 66,
+    badge: "MODERATELY SUITABLE FOR PV"
+  },
+  dakshin_dinajpur: {
+    district: "Dakshin Dinajpur",
+    rating: 7.0,
+    drivingForce: "Highly optimal, flat, uncluttered residential roofs.",
+    constraint: "Delays in regional sub-station approvals for high-kW loads.",
+    lat: 25.2200,
+    lng: 88.7600,
+    keywords: ["dakshin dinajpur", "south dinajpur", "balurghat", "gangarampur", "buniadpur", "kumarganj", "harirampur", "kushmandi", "tapan"],
+    insolation: 83,
+    alignment: 82,
+    shadeLoss: 7.9,
+    discomHeadroom: 66,
+    badge: "MODERATELY SUITABLE FOR PV"
+  },
+  cooch_behar: {
+    district: "Cooch Behar",
+    rating: 6.5,
+    drivingForce: "Cheap land and open properties enable clean rooftop layouts.",
+    constraint: "Slower resolution timelines for system micro-faults.",
+    lat: 26.3236,
+    lng: 89.4510,
+    keywords: ["cooch behar", "koch bihar", "dinhata", "mathabhanga", "tufanganj", "mekliganj", "haldibari", "sitalkuchi"],
+    insolation: 78,
+    alignment: 79,
+    shadeLoss: 9.5,
+    discomHeadroom: 62,
+    badge: "ACCEPTABLE FEASIBILITY"
+  },
+  jalpaiguri: {
+    district: "Jalpaiguri",
+    rating: 6.5,
+    drivingForce: "Heavy demand from private eco-resorts and commercial tea gardens.",
+    constraint: "Extended cloud covers significantly scale down monsoon production.",
+    lat: 26.5405,
+    lng: 88.7196,
+    keywords: ["jalpaiguri", "malbazar", "dhupguri", "maynaguri", "rajganj", "matiali", "nagrakata", "banarhat"],
+    insolation: 77,
+    alignment: 78,
+    shadeLoss: 10.2,
+    discomHeadroom: 62,
+    badge: "ACCEPTABLE FEASIBILITY"
+  },
+  alipurduar: {
+    district: "Alipurduar",
+    rating: 6.5,
+    drivingForce: "Increasing institutional push for off-grid hybrid solutions.",
+    constraint: "Extreme micro-climate humidity necessitates premium component seals.",
+    lat: 26.4919,
+    lng: 89.5271,
+    keywords: ["alipurduar", "falakata", "madarihat", "kalchini", "kumargram", "birpara", "jaigaon", "hasimara"],
+    insolation: 76,
+    alignment: 78,
+    shadeLoss: 10.5,
+    discomHeadroom: 60,
+    badge: "ACCEPTABLE FEASIBILITY"
+  },
+  darjeeling: {
+    district: "Darjeeling",
+    rating: 5.5,
+    drivingForce: "High grid electricity costs make alternative options financially rewarding.",
+    constraint: "Thick fog patterns, heavy monsoon rain, and highly complex hill transport.",
+    lat: 27.0410,
+    lng: 88.2663,
+    keywords: ["darjeeling", "siliguri", "kurseong", "mirik", "sukhiapokhri", "bijanbari", "takdah", "rimbick"],
+    insolation: 68,
+    alignment: 72,
+    shadeLoss: 14.5,
+    discomHeadroom: 55,
+    badge: "SELECTIVE HILL FEASIBILITY"
+  },
+  kalimpong: {
+    district: "Kalimpong",
+    rating: 5.5,
+    drivingForce: "Pollution-free air increases panel efficiency when direct sunlight hits.",
+    constraint: "Steep slopes restrict standard roof placement and escalate labor prices.",
+    lat: 27.0667,
+    lng: 88.4667,
+    keywords: ["kalimpong", "pedong", "lava", "rishyap", "algarah", "gorubathan", "jaldhaka", "lolegaon"],
+    insolation: 67,
+    alignment: 71,
+    shadeLoss: 15.0,
+    discomHeadroom: 54,
+    badge: "SELECTIVE HILL FEASIBILITY"
+  }
+};
+
+/**
+ * Detects the West Bengal district from address keywords or geodesic centroid coordinates
+ */
+function detectWestBengalDistrict(lat, lng, locationQuery = '') {
+  const queryLower = (locationQuery || '').toLowerCase();
+
+  // 1. Precise text keyword search
+  for (const key in WEST_BENGAL_DISTRICTS) {
+    const d = WEST_BENGAL_DISTRICTS[key];
+    if (queryLower.includes(d.district.toLowerCase())) {
+      return { key, ...d };
+    }
+    for (const kw of d.keywords) {
+      if (queryLower.includes(kw)) {
+        return { key, ...d };
+      }
+    }
+  }
+
+  // 2. Coordinate proximity search
+  if (!isNaN(lat) && !isNaN(lng)) {
+    const isWbRegion = (lat >= 21.0 && lat <= 27.6 && lng >= 85.5 && lng <= 90.2);
+    let nearestKey = null;
+    let minDistance = Infinity;
+
+    for (const key in WEST_BENGAL_DISTRICTS) {
+      const d = WEST_BENGAL_DISTRICTS[key];
+      const dist = Math.hypot(lat - d.lat, lng - d.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestKey = key;
+      }
+    }
+
+    if (isWbRegion && nearestKey) {
+      return { key: nearestKey, ...WEST_BENGAL_DISTRICTS[nearestKey] };
+    }
+    if (minDistance < 2.0 && nearestKey) {
+      return { key: nearestKey, ...WEST_BENGAL_DISTRICTS[nearestKey] };
+    }
+  }
+
+  // Fallback to Kolkata baseline
+  return { key: 'kolkata', ...WEST_BENGAL_DISTRICTS.kolkata };
+}
+
+/**
+ * Updates the Rooftop Solar Rating & AI Shading Engine score, gauge, badges, driving force and constraints
+ */
+function updateWestBengalSolarRating(lat, lng, locationHint = null) {
+  const districtData = detectWestBengalDistrict(lat, lng, locationHint);
+  if (!districtData) return;
+
+  const rating = districtData.rating;
+  const ratingStr = rating.toFixed(1);
+
+  // 1. Update Gauge Score & District Labels
+  const scoreEl = document.getElementById('aiGaugeScore');
+  const distLabelEl = document.getElementById('aiGaugeDistrictLabel');
+  const distTagEl = document.getElementById('aiDetectedDistrictText');
+  const badgeEl = document.getElementById('aiGaugeBadge');
+  const circleEl = document.getElementById('aiGaugeCircle');
+
+  if (scoreEl) scoreEl.innerText = ratingStr;
+  if (distLabelEl) distLabelEl.innerText = `${districtData.district} District`;
+  if (distTagEl) distTagEl.innerText = `${districtData.district} (${ratingStr}/10)`;
+
+  // 2. SVG Circle dashoffset & color (Circumference = 2 * PI * 68 = ~427)
+  if (circleEl) {
+    const circumference = 427;
+    const offset = Math.max(0, circumference * (1 - (rating / 10)));
+    circleEl.style.strokeDashoffset = offset.toFixed(1);
+
+    if (rating >= 9.0) {
+      circleEl.setAttribute('stroke', '#10B981');
+    } else if (rating >= 8.0) {
+      circleEl.setAttribute('stroke', '#F59E0B');
+    } else if (rating >= 7.0) {
+      circleEl.setAttribute('stroke', '#06B6D4');
+    } else {
+      circleEl.setAttribute('stroke', '#F97316');
+    }
+  }
+
+  // 3. Recommendation Badge
+  if (badgeEl) {
+    let badgeClass = 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+    let iconClass = 'fa-solid fa-circle-check';
+    if (rating >= 9.5) {
+      badgeClass = 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-300';
+      iconClass = 'fa-solid fa-crown';
+    } else if (rating >= 9.0) {
+      badgeClass = 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+      iconClass = 'fa-solid fa-circle-check';
+    } else if (rating >= 8.0) {
+      badgeClass = 'bg-amber-500/10 border border-amber-500/30 text-amber-400';
+      iconClass = 'fa-solid fa-circle-check';
+    } else if (rating >= 7.0) {
+      badgeClass = 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-400';
+      iconClass = 'fa-solid fa-solar-panel';
+    } else {
+      badgeClass = 'bg-amber-500/10 border border-amber-500/30 text-amber-300';
+      iconClass = 'fa-solid fa-mountain';
+    }
+    badgeEl.className = `${badgeClass} font-mono text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5`;
+    badgeEl.innerHTML = `<i class="${iconClass}"></i> ${districtData.badge}`;
+  }
+
+  // 4. Progress Bars
+  const insolationVal = document.getElementById('aiInsolationVal');
+  const insolationBar = document.getElementById('aiInsolationBar');
+  const azimuthVal = document.getElementById('aiAzimuthVal');
+  const azimuthBar = document.getElementById('aiAzimuthBar');
+  const shadeVal = document.getElementById('aiShadeVal');
+  const shadeBar = document.getElementById('aiShadeBar');
+  const discomVal = document.getElementById('aiDiscomVal');
+  const discomBar = document.getElementById('aiDiscomBar');
+
+  if (insolationVal) insolationVal.innerText = `${districtData.insolation}%`;
+  if (insolationBar) insolationBar.style.width = `${districtData.insolation}%`;
+
+  if (azimuthVal) azimuthVal.innerText = `${districtData.alignment}%`;
+  if (azimuthBar) azimuthBar.style.width = `${districtData.alignment}%`;
+
+  if (shadeVal) shadeVal.innerText = `- ${districtData.shadeLoss}%`;
+  if (shadeBar) shadeBar.style.width = `${Math.round(districtData.shadeLoss * 2.5)}%`;
+
+  if (discomVal) discomVal.innerText = `${districtData.discomHeadroom}% Headroom`;
+  if (discomBar) discomBar.style.width = `${districtData.discomHeadroom}%`;
+
+  // 5. Explainability Cards (Key Driving Force & Primary Constraint)
+  const drivingForceEl = document.getElementById('aiKeyDrivingForce');
+  const constraintEl = document.getElementById('aiConstraint');
+
+  if (drivingForceEl) drivingForceEl.innerText = districtData.drivingForce;
+  if (constraintEl) constraintEl.innerText = districtData.constraint;
+
+  // 6. Sync Dropdown if present
+  const dropdownEls = document.querySelectorAll('#aiWbDistrictDropdown');
+  dropdownEls.forEach(el => {
+    if (el && el.value !== districtData.key) {
+      el.value = districtData.key;
+    }
+  });
+
+  if (window.StatusLog) {
+    window.StatusLog.log(
+      `WB Solar Feasibility Matrix: ${districtData.district} evaluated at ${ratingStr}/10 (${districtData.badge}). Driving Force: ${districtData.drivingForce}`,
+      'SUCCESS',
+      'AI-ENGINE'
+    );
+  }
+}
+
+/**
+ * Handle direct selection of a West Bengal district from the dropdown
+ */
+function selectWestBengalDistrict(districtKey) {
+  const d = WEST_BENGAL_DISTRICTS[districtKey];
+  if (!d) return;
+
+  const inputLocation = document.getElementById('inputLocation');
+  if (inputLocation) {
+    inputLocation.value = `${d.district}, West Bengal`;
+  }
+
+  if (window.ojasMap && window.ojasMap.map) {
+    window.ojasMap.currentLat = d.lat;
+    window.ojasMap.currentLng = d.lng;
+    window.ojasMap.map.setView([d.lat, d.lng], 17);
+    window.ojasMap.marker.setLatLng([d.lat, d.lng]);
+    window.ojasMap.updateMapPolygon(d.lat, d.lng);
+    window.ojasMap.updateTelemetry();
+  }
+
+  updateWestBengalSolarRating(d.lat, d.lng, d.district);
+  updateDistrictWeather(d.lat, d.lng, d.district);
+  updateAiWeather(d.lat, d.lng, d.district);
+  updateSolarCoordinates(d.lat, d.lng, d.district);
+  calculateEstimation();
+}
+
+/**
+ * Populates all #aiWbDistrictDropdown selectors with the 27 WB districts ranked by feasibility
+ */
+function populateWestBengalDropdown() {
+  const selects = document.querySelectorAll('#aiWbDistrictDropdown');
+  selects.forEach(dropdown => {
+    if (!dropdown) return;
+    dropdown.innerHTML = '';
+    const sortedKeys = Object.keys(WEST_BENGAL_DISTRICTS).sort((a, b) => {
+      const diff = WEST_BENGAL_DISTRICTS[b].rating - WEST_BENGAL_DISTRICTS[a].rating;
+      return diff !== 0 ? diff : WEST_BENGAL_DISTRICTS[a].district.localeCompare(WEST_BENGAL_DISTRICTS[b].district);
+    });
+
+    sortedKeys.forEach(key => {
+      const d = WEST_BENGAL_DISTRICTS[key];
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = `${d.district} — ${d.rating.toFixed(1)} / 10`;
+      dropdown.appendChild(opt);
+    });
+    dropdown.value = 'kolkata';
+  });
+}
+
+function initWestBengalMatrix() {
+  populateWestBengalDropdown();
+  const input = document.getElementById('inputLocation');
+  const locVal = input ? input.value : 'Park Street, Kolkata, West Bengal';
+  const lat = window.ojasMap ? window.ojasMap.currentLat : 22.5726;
+  const lng = window.ojasMap ? window.ojasMap.currentLng : 88.3639;
+  updateWestBengalSolarRating(lat, lng, locVal);
+}
+
 function selectSuggestion(lat, lon, displayName) {
   const input = document.getElementById('inputLocation');
   if (input) input.value = displayName;
@@ -600,6 +1210,7 @@ function selectSuggestion(lat, lon, displayName) {
   }
 
   calculateEstimation();
+  updateWestBengalSolarRating(latitude, longitude, displayName);
   updateDistrictWeather(latitude, longitude, displayName);
   updateAiWeather(latitude, longitude, displayName);
   updateSolarCoordinates(latitude, longitude, displayName);
@@ -651,6 +1262,7 @@ function geocodeAddress() {
         }
 
         calculateEstimation();
+        updateWestBengalSolarRating(lat, lon, data[0].display_name);
         updateDistrictWeather(lat, lon, data[0].display_name);
         updateAiWeather(lat, lon, data[0].display_name);
         updateSolarCoordinates(lat, lon, data[0].display_name);
@@ -696,6 +1308,7 @@ function useCurrentLocation() {
       }
 
       calculateEstimation();
+      updateWestBengalSolarRating(lat, lng, 'Current GPS Location');
       updateDistrictWeather(lat, lng, 'Current GPS Location');
       updateAiWeather(lat, lng, 'Current GPS Location');
       updateSolarCoordinates(lat, lng, 'Current GPS Location');
@@ -795,30 +1408,52 @@ const ROOF_MATERIAL_FACTORS = {
   wood: 0.60       // Wood/truss framing (structural load limits)
 };
 
-function calculateEstimation() {
-  const houseArea = parseFloat(document.getElementById('inputHouseArea')?.value) || 1800;
+/**
+ * Automatically syncs solar install area whenever total rooftop area is edited
+ */
+function handleHouseAreaInput() {
+  const houseAreaInput = document.getElementById('inputHouseArea');
   const solarAreaInput = document.getElementById('inputSolarArea');
-  const solarArea = parseFloat(solarAreaInput?.value) || 650;
-  const electricityUnits = parseFloat(document.getElementById('inputElectricity')?.value) || 450;
   const material = document.getElementById('inputMaterial')?.value || 'rcc';
-
-  // Usable area utilization factor
   const usableFactor = ROOF_MATERIAL_FACTORS[material] || 0.75;
+  const houseArea = parseFloat(houseAreaInput?.value) || 0;
+
+  if (solarAreaInput && houseArea > 0) {
+    // Proportional solar usable footprint based on structural setback & material efficiency
+    // Standard RCC terrace: ~36% net unshaded install space (1800 sqft -> 650 sqft)
+    const derivedSolar = Math.round(houseArea * usableFactor * 0.4815);
+    solarAreaInput.value = Math.max(50, derivedSolar);
+  }
+  calculateEstimation();
+}
+
+function calculateEstimation() {
+  const houseAreaInput = document.getElementById('inputHouseArea');
+  const houseArea = parseFloat(houseAreaInput?.value) || 1800;
+  const solarAreaInput = document.getElementById('inputSolarArea');
+  const material = document.getElementById('inputMaterial')?.value || 'rcc';
+  const usableFactor = ROOF_MATERIAL_FACTORS[material] || 0.75;
+
+  let solarArea = parseFloat(solarAreaInput?.value);
+  if (isNaN(solarArea) || solarArea <= 0) {
+    solarArea = Math.round(houseArea * usableFactor * 0.4815);
+    if (solarAreaInput) solarAreaInput.value = solarArea;
+  }
+
+  const electricityUnits = parseFloat(document.getElementById('inputElectricity')?.value) || 450;
   const usableAreaSqm = (solarArea * 0.092903).toFixed(1);
 
-  // System Capacity (kWp) derivation based on usable solar area & electrical usage
+  // System Capacity (kWp) derivation dynamically powered by available solar rooftop area
   // Standard Tier-1 ALMM modules (~440-540Wp) require ~120-130 sq ft of net usable area per kWp
   let capByArea = solarArea / 130;
-  let capByUsage = electricityUnits / 120; // ~120 units generated per kWp per month
-  let systemCap = Math.min(capByArea, capByUsage);
-  systemCap = Math.max(1.0, Math.round(systemCap * 10) / 10); // min 1.0 kWp
+  let systemCap = Math.max(1.0, Math.round(capByArea * 10) / 10);
 
-  // Gross Capital Cost calculation (~₹48,000 - ₹52,000 / kW base)
+  // Gross Capital Cost calculation (~₹48,000 - ₹52,000 / kW base MNRE benchmark)
   let baseRatePerKw = 48000;
   if (material === 'tile' || material === 'wood') baseRatePerKw += 4000;
   let grossCost = systemCap * baseRatePerKw;
 
-  // PM Surya Ghar Subsidy (CFA Rules: up to 2kW @ ₹30k/kW; 2-3kW @ +₹18k/kW; max ₹78,000)
+  // PM Surya Ghar Subsidy (CFA Rules: up to 2kW @ ₹30k/kW; 2-3kW @ +₹18k/kW; capped at ₹78,000 for >=3kW)
   let subsidy = 0;
   if (systemCap <= 2) {
     subsidy = systemCap * 30000;
@@ -3236,3 +3871,10 @@ window.toggleGeoapifyKeyModal = toggleGeoapifyKeyModal;
 window.saveGeoapifyKey = saveGeoapifyKey;
 window.identifyStateAndRecommendPanels = identifyStateAndRecommendPanels;
 window.applyRecommendedPanel = applyRecommendedPanel;
+window.handleHouseAreaInput = handleHouseAreaInput;
+window.updateWestBengalSolarRating = updateWestBengalSolarRating;
+window.selectWestBengalDistrict = selectWestBengalDistrict;
+window.populateWestBengalDropdown = populateWestBengalDropdown;
+window.detectWestBengalDistrict = detectWestBengalDistrict;
+window.initWestBengalMatrix = initWestBengalMatrix;
+window.WEST_BENGAL_DISTRICTS = WEST_BENGAL_DISTRICTS;
